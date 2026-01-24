@@ -14,7 +14,7 @@
 ## Document structure (subset)
 - assessmentResult (root)
   - context (required)
-    - @sourcedId (optional attribute)
+    - @sourcedId (required attribute)
     - sessionIdentifier (0..n)
   - testResult (0..1)
     - outcomeVariable (0..n)
@@ -46,28 +46,28 @@ Each Track LMS metric is recorded as a QTI outcomeVariable. Identifiers are pref
 TRACKLMS_ to avoid collisions with standard QTI variables. All variables use cardinality="single".
 
 Base type mapping:
-- integer: numeric counts (test cases, pages, seconds)
-- float: numeric scores or percentages
+- integer: numeric counts (questionCount, correctCount, timeSpentSeconds, restartCount)
+- float: numeric scores
 - boolean: isOptional
 - string: any textual value (status, titles, progress states)
 
 ## Field mapping
 
 ### Context identifiers
-| Track LMS column      | Output location                                                                               | Notes                         |
-| --------------------- | --------------------------------------------------------------------------------------------- | ----------------------------- |
-| account               | context/@sourcedId                                                                            | Candidate identifier (email). |
-| classId               | context/sessionIdentifier (sourceID = urn:tracklms:classId, identifier = value)               | String value.                 |
-| className             | context/sessionIdentifier (sourceID = urn:tracklms:className, identifier = value)             | String value.                 |
-| traineeId             | context/sessionIdentifier (sourceID = urn:tracklms:traineeId, identifier = value)             | String value.                 |
-| account               | context/sessionIdentifier (sourceID = urn:tracklms:account, identifier = value)               | String value.                 |
-| traineeName           | context/sessionIdentifier (sourceID = urn:tracklms:traineeName, identifier = value)           | String value.                 |
-| traineeKlassId        | context/sessionIdentifier (sourceID = urn:tracklms:traineeKlassId, identifier = value)        | String value.                 |
-| matrerialId           | context/sessionIdentifier (sourceID = urn:tracklms:materialId, identifier = value)            | String value.                 |
-| materialTitle         | context/sessionIdentifier (sourceID = urn:tracklms:materialTitle, identifier = value)         | String value.                 |
-| materialType          | context/sessionIdentifier (sourceID = urn:tracklms:materialType, identifier = value)          | String value.                 |
-| materialVersionNumber | context/sessionIdentifier (sourceID = urn:tracklms:materialVersionNumber, identifier = value) | String value.                 |
-| resultId              | context/sessionIdentifier (sourceID = urn:tracklms:resultId, identifier = value)              | Attempt identifier.           |
+| Track LMS column      | Output location                                                                               | Notes                               |
+| --------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------- |
+| account               | context/@sourcedId                                                                            | Candidate identifier (email).       |
+| classId               | context/sessionIdentifier (sourceID = urn:tracklms:classId, identifier = value)               | String value.                       |
+| className             | context/sessionIdentifier (sourceID = urn:tracklms:className, identifier = value)             | String value.                       |
+| traineeId             | context/sessionIdentifier (sourceID = urn:tracklms:traineeId, identifier = value)             | String value.                       |
+| account               | context/sessionIdentifier (sourceID = urn:tracklms:account, identifier = value)               | String value.                       |
+| traineeName           | context/sessionIdentifier (sourceID = urn:tracklms:traineeName, identifier = value)           | String value.                       |
+| traineeKlassId        | context/sessionIdentifier (sourceID = urn:tracklms:traineeKlassId, identifier = value)        | String value.                       |
+| matrerialId           | context/sessionIdentifier (sourceID = urn:tracklms:materialId, identifier = value)            | String value.                       |
+| materialTitle         | context/sessionIdentifier (sourceID = urn:tracklms:materialTitle, identifier = value)         | String value.                       |
+| materialType          | context/sessionIdentifier (sourceID = urn:tracklms:materialType, identifier = value)          | String value.                       |
+| MaterialVersionNumber | context/sessionIdentifier (sourceID = urn:tracklms:MaterialVersionNumber, identifier = value) | String value (note capitalization). |
+| resultId              | context/sessionIdentifier (sourceID = urn:tracklms:resultId, identifier = value)              | Attempt identifier.                 |
 
 ### Common outcome variables
 | Track LMS column         | outcomeVariable identifier           | baseType          |
@@ -78,71 +78,26 @@ Base type mapping:
 | startAt                  | TRACKLMS_START_AT                    | string (ISO 8601) |
 | endAt                    | TRACKLMS_END_AT                      | string (ISO 8601) |
 
-### Challenge outcome variables (materialType = Challenge)
-| Track LMS column             | outcomeVariable identifier              | baseType | Notes                                     |
-| ---------------------------- | --------------------------------------- | -------- | ----------------------------------------- |
-| challengeId                  | TRACKLMS_CHALLENGE_ID                   | string   | Preserve original ID as string.           |
-| challengeTitle               | TRACKLMS_CHALLENGE_TITLE                | string   |                                           |
-| challengeProgrammingLang     | TRACKLMS_CHALLENGE_PROGRAMMING_LANG     | string   |                                           |
-| challengeScore               | TRACKLMS_CHALLENGE_SCORE                | float    | Parsed from TrainChallengeScore(<float>). |
-| challengeTotalTestcases      | TRACKLMS_CHALLENGE_TOTAL_TESTCASES      | integer  |                                           |
-| challengeSuccessfulTestcases | TRACKLMS_CHALLENGE_SUCCESSFUL_TESTCASES | integer  |                                           |
-| challengeTimeSpentSeconds    | TRACKLMS_CHALLENGE_TIME_SPENT_SECONDS   | integer  |                                           |
-| challengeRestartCount        | TRACKLMS_CHALLENGE_RESTART_COUNT        | integer  |                                           |
-| challengeTakenBy             | TRACKLMS_CHALLENGE_TAKEN_BY             | string   |                                           |
+### Result summary outcome variables
+| Track LMS column | outcomeVariable identifier  | baseType |
+| ---------------- | --------------------------- | -------- |
+| id               | TRACKLMS_ID                 | integer  |
+| title            | TRACKLMS_TITLE              | string   |
+| score            | TRACKLMS_SCORE              | float    |
+| questionCount    | TRACKLMS_QUESTION_COUNT     | integer  |
+| correctCount     | TRACKLMS_CORRECT_COUNT      | integer  |
+| timeSpentSeconds | TRACKLMS_TIME_SPENT_SECONDS | integer  |
+| restartCount     | TRACKLMS_RESTART_COUNT      | integer  |
 
-### Book outcome variables (materialType = Book)
-| Track LMS column       | outcomeVariable identifier         | baseType |
-| ---------------------- | ---------------------------------- | -------- |
-| bookId                 | TRACKLMS_BOOK_ID                   | string   |
-| bookTitle              | TRACKLMS_BOOK_TITLE                | string   |
-| bookTotalSectionCount  | TRACKLMS_BOOK_TOTAL_SECTION_COUNT  | integer  |
-| bookSolvedSectionCount | TRACKLMS_BOOK_SOLVED_SECTION_COUNT | integer  |
-| bookChapterIndex       | TRACKLMS_BOOK_CHAPTER_INDEX        | integer  |
-| bookSectionIndex       | TRACKLMS_BOOK_SECTION_INDEX        | integer  |
+### Question-level outcome variables (variable length)
+For question index n (starting at 1), emit the following outcome variables:
 
-### Video outcome variables (materialType = Video)
 | Track LMS column | outcomeVariable identifier | baseType |
 | ---------------- | -------------------------- | -------- |
-| videoId          | TRACKLMS_VIDEO_ID          | string   |
-| videoTitle       | TRACKLMS_VIDEO_TITLE       | string   |
-| videoPercentage  | TRACKLMS_VIDEO_PERCENTAGE  | integer  |
-
-### App outcome variables (materialType = App)
-| Track LMS column       | outcomeVariable identifier        | baseType |
-| ---------------------- | --------------------------------- | -------- |
-| appId                  | TRACKLMS_APP_ID                   | string   |
-| appTitle               | TRACKLMS_APP_TITLE                | string   |
-| appTotalTestcases      | TRACKLMS_APP_TOTAL_TESTCASES      | integer  |
-| appSuccessfulTestcases | TRACKLMS_APP_SUCCESSFUL_TESTCASES | integer  |
-| appTimeSpentSeconds    | TRACKLMS_APP_TIME_SPENT_SECONDS   | integer  |
-
-### Slide outcome variables (materialType = Slide)
-| Track LMS column    | outcomeVariable identifier      | baseType |
-| ------------------- | ------------------------------- | -------- |
-| slideId             | TRACKLMS_SLIDE_ID               | string   |
-| slideTotalPageCount | TRACKLMS_SLIDE_TOTAL_PAGE_COUNT | integer  |
-| slideReadPageCount  | TRACKLMS_SLIDE_READ_PAGE_COUNT  | integer  |
-
-### LTI outcome variables (materialType = Lti or LTI)
-| Track LMS column    | outcomeVariable identifier     | baseType |
-| ------------------- | ------------------------------ | -------- |
-| ltiMaterialId       | TRACKLMS_LTI_MATERIAL_ID       | string   |
-| ltiScoreGiven       | TRACKLMS_LTI_SCORE_GIVEN       | float    |
-| ltiScoreMaximum     | TRACKLMS_LTI_SCORE_MAXIMUM     | float    |
-| ltiActivityProgress | TRACKLMS_LTI_ACTIVITY_PROGRESS | string   |
-| ltiGradingProgress  | TRACKLMS_LTI_GRADING_PROGRESS  | string   |
-
-### Survey outcome variables (materialType = Survey)
-| Track LMS column    | outcomeVariable identifier     | baseType |
-| ------------------- | ------------------------------ | -------- |
-| surveyId            | TRACKLMS_SURVEY_ID             | string   |
-| surveyTitle         | TRACKLMS_SURVEY_TITLE          | string   |
-| surveyAnswerTitle/0 | TRACKLMS_SURVEY_ANSWER_TITLE_0 | string   |
-| surveyAnswerValue/0 | TRACKLMS_SURVEY_ANSWER_VALUE_0 | string   |
-
-If multiple answer columns exist, index suffixes are added accordingly
-(e.g., TRACKLMS_SURVEY_ANSWER_TITLE_1).
+| q{n}/title       | TRACKLMS_Q{n}_TITLE        | string   |
+| q{n}/correct     | TRACKLMS_Q{n}_CORRECT      | string   |
+| q{n}/answer      | TRACKLMS_Q{n}_ANSWER       | string   |
+| q{n}/score       | TRACKLMS_Q{n}_SCORE        | float    |
 
 ## Timestamp handling
 - Input timestamps (startAt/endAt) are assumed to be Track LMS local time without timezone.
@@ -159,6 +114,7 @@ If multiple answer columns exist, index suffixes are added accordingly
     <sessionIdentifier sourceID="urn:tracklms:classId" identifier="18976" />
     <sessionIdentifier sourceID="urn:tracklms:traineeId" identifier="49071" />
     <sessionIdentifier sourceID="urn:tracklms:materialId" identifier="562343" />
+    <sessionIdentifier sourceID="urn:tracklms:MaterialVersionNumber" identifier="7.0" />
     <sessionIdentifier sourceID="urn:tracklms:resultId" identifier="13562866" />
     <sessionIdentifier sourceID="urn:tracklms:account" identifier="siw23010016@class.siw.ac.jp" />
   </context>
@@ -166,17 +122,26 @@ If multiple answer columns exist, index suffixes are added accordingly
     <outcomeVariable identifier="TRACKLMS_STATUS" cardinality="single" baseType="string">
       <value>Completed</value>
     </outcomeVariable>
-    <outcomeVariable identifier="TRACKLMS_CHALLENGE_SCORE" cardinality="single" baseType="float">
+    <outcomeVariable identifier="TRACKLMS_SCORE" cardinality="single" baseType="float">
       <value>75.0</value>
     </outcomeVariable>
-    <outcomeVariable identifier="TRACKLMS_CHALLENGE_TOTAL_TESTCASES" cardinality="single" baseType="integer">
+    <outcomeVariable identifier="TRACKLMS_QUESTION_COUNT" cardinality="single" baseType="integer">
       <value>4</value>
     </outcomeVariable>
-    <outcomeVariable identifier="TRACKLMS_CHALLENGE_SUCCESSFUL_TESTCASES" cardinality="single" baseType="integer">
+    <outcomeVariable identifier="TRACKLMS_CORRECT_COUNT" cardinality="single" baseType="integer">
       <value>3</value>
     </outcomeVariable>
-    <outcomeVariable identifier="TRACKLMS_CHALLENGE_TIME_SPENT_SECONDS" cardinality="single" baseType="integer">
+    <outcomeVariable identifier="TRACKLMS_TIME_SPENT_SECONDS" cardinality="single" baseType="integer">
       <value>3266</value>
+    </outcomeVariable>
+    <outcomeVariable identifier="TRACKLMS_Q1_TITLE" cardinality="single" baseType="string">
+      <value>js-free-description-click-to-change-innerText</value>
+    </outcomeVariable>
+    <outcomeVariable identifier="TRACKLMS_Q1_ANSWER" cardinality="single" baseType="string">
+      <value>let BtnYoso = document.querySelector('#btn');</value>
+    </outcomeVariable>
+    <outcomeVariable identifier="TRACKLMS_Q1_SCORE" cardinality="single" baseType="float">
+      <value>1</value>
     </outcomeVariable>
   </testResult>
 </assessmentResult>
