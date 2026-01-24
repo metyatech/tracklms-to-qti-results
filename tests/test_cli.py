@@ -148,6 +148,21 @@ class CliTest(unittest.TestCase):
         finally:
             _cleanup_temp_dir(Path(temp_dir))
 
+    def test_cli_defaults_out_dir_to_input_parent(self) -> None:
+        csv_text = _load_fixture_text("descriptive.csv")
+        temp_dir = _temp_dir()
+        try:
+            csv_path = Path(temp_dir) / "input.csv"
+            csv_path.write_text(csv_text, encoding="utf-8")
+            result = _run_cli([str(csv_path)])
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            out_dir = Path(temp_dir) / "out"
+            output_file = out_dir / "assessmentResult-98765.xml"
+            self.assertTrue(output_file.exists())
+        finally:
+            _cleanup_temp_dir(Path(temp_dir))
+
     def test_cli_timezone_override(self) -> None:
         csv_path = FIXTURE_DIR / "cloze.csv"
         temp_dir = _temp_dir()

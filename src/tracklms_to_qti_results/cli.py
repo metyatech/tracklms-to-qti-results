@@ -19,8 +19,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--out-dir",
-        default=".",
-        help="Output directory for XML files. Defaults to current directory.",
+        default=None,
+        help=(
+            "Output directory for XML files. Defaults to <input_dir>/out "
+            "(or ./out when reading stdin)."
+        ),
     )
     parser.add_argument(
         "--timezone",
@@ -33,7 +36,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         csv_text = _read_input(args.input)
         results = convert_csv_text_to_qti_results(csv_text, timezone=args.timezone)
-        out_dir = Path(args.out_dir)
+        out_dir = _resolve_out_dir(args.input, args.out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
         for result in results:
             output_path = out_dir / f"assessmentResult-{result.result_id}.xml"
@@ -52,6 +55,14 @@ def _read_input(value: str) -> str:
     if value == "-":
         return sys.stdin.read()
     return Path(value).read_text(encoding="utf-8")
+
+
+def _resolve_out_dir(input_value: str, out_dir: str | None) -> Path:
+    if out_dir:
+        return Path(out_dir)
+    if input_value == "-":
+        return Path.cwd() / "out"
+    return Path(input_value).resolve().parent / "out"
 
 
 if __name__ == "__main__":
