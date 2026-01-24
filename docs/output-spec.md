@@ -169,10 +169,10 @@ Question type is determined by the q{n}/correct and q{n}/answer fields:
 - The timezone is configured by the converter (default: Asia/Tokyo).
 
 ## Examples (test cases)
-See the test case fixtures in [docs/test-cases/README.md](test-cases/README.md):
-- Descriptive: [docs/test-cases/descriptive.csv](test-cases/descriptive.csv), [docs/test-cases/descriptive.qti.xml](test-cases/descriptive.qti.xml)
-- Choice: [docs/test-cases/choice.csv](test-cases/choice.csv), [docs/test-cases/choice.qti.xml](test-cases/choice.qti.xml)
-- Fill-in-the-blank: [docs/test-cases/cloze.csv](test-cases/cloze.csv), [docs/test-cases/cloze.qti.xml](test-cases/cloze.qti.xml)
+See the test case fixtures in [tests/fixtures/README.md](../tests/fixtures/README.md):
+- Descriptive: [tests/fixtures/descriptive.csv](../tests/fixtures/descriptive.csv), [tests/fixtures/descriptive.qti.xml](../tests/fixtures/descriptive.qti.xml)
+- Choice: [tests/fixtures/choice.csv](../tests/fixtures/choice.csv), [tests/fixtures/choice.qti.xml](../tests/fixtures/choice.qti.xml)
+- Fill-in-the-blank: [tests/fixtures/cloze.csv](../tests/fixtures/cloze.csv), [tests/fixtures/cloze.qti.xml](../tests/fixtures/cloze.qti.xml)
 
 ## Output file naming
 - One file per resultId.

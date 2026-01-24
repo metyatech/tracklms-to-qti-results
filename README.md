@@ -28,3 +28,11 @@ node agent-rules-tools/tools/compose-agents.cjs
 ## Planned tech
 
 - Python + Pydantic
+
+## Development
+
+### Tests
+
+```sh
+python -m unittest discover -s tests
+```
