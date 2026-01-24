@@ -66,5 +66,5 @@ Notes:
 - Run from the repository root; `run_cli.py` bootstraps `src/` automatically.
 - If your environment allows, `python -m tracklms_to_qti_results ...` also works.
 - Use `-` instead of a file path to read CSV data from stdin.
-- If `--out-dir` is omitted, outputs go to `<input_dir>/out` (or `./out` when reading stdin).
+- If `--out-dir` is omitted, outputs go to `<input_dir>/qti-results` (or `./qti-results` when reading stdin).
 - Output files are written as `assessmentResult-<resultId>.xml`.

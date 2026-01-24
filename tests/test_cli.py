@@ -86,14 +86,17 @@ def _normalize_element(element: ET.Element) -> tuple:
 
 
 def _run_cli(
-    args: list[str], *, input_text: str | None = None
+    args: list[str],
+    *,
+    input_text: str | None = None,
+    cwd: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(RUN_CLI), *args],
         input=input_text,
         text=True,
         capture_output=True,
-        cwd=ROOT_DIR,
+        cwd=cwd or ROOT_DIR,
     )
 
 
@@ -157,7 +160,20 @@ class CliTest(unittest.TestCase):
             result = _run_cli([str(csv_path)])
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            out_dir = Path(temp_dir) / "out"
+            out_dir = Path(temp_dir) / "qti-results"
+            output_file = out_dir / "assessmentResult-98765.xml"
+            self.assertTrue(output_file.exists())
+        finally:
+            _cleanup_temp_dir(Path(temp_dir))
+
+    def test_cli_defaults_out_dir_to_cwd_for_stdin(self) -> None:
+        csv_text = _load_fixture_text("descriptive.csv")
+        temp_dir = _temp_dir()
+        try:
+            result = _run_cli(["-"], input_text=csv_text, cwd=temp_dir)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            out_dir = Path(temp_dir) / "qti-results"
             output_file = out_dir / "assessmentResult-98765.xml"
             self.assertTrue(output_file.exists())
         finally:

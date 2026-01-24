@@ -8,6 +8,8 @@ from pathlib import Path
 
 from .converter import ConversionError, convert_csv_text_to_qti_results
 
+DEFAULT_OUT_DIRNAME = "qti-results"
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
@@ -21,8 +23,8 @@ def main(argv: list[str] | None = None) -> int:
         "--out-dir",
         default=None,
         help=(
-            "Output directory for XML files. Defaults to <input_dir>/out "
-            "(or ./out when reading stdin)."
+            "Output directory for XML files. Defaults to <input_dir>/"
+            f"{DEFAULT_OUT_DIRNAME} (or ./{DEFAULT_OUT_DIRNAME} when reading stdin)."
         ),
     )
     parser.add_argument(
@@ -61,8 +63,8 @@ def _resolve_out_dir(input_value: str, out_dir: str | None) -> Path:
     if out_dir:
         return Path(out_dir)
     if input_value == "-":
-        return Path.cwd() / "out"
-    return Path(input_value).resolve().parent / "out"
+        return Path.cwd() / DEFAULT_OUT_DIRNAME
+    return Path(input_value).resolve().parent / DEFAULT_OUT_DIRNAME
 
 
 if __name__ == "__main__":
