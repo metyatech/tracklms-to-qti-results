@@ -25,7 +25,20 @@ class ConversionError(ValueError):
     """Raised when input data is missing required fields or is invalid."""
 
 
+@dataclass(frozen=True)
+class RubricCriterion:
+    points: str
+    text: str
+
+
+@dataclass(frozen=True)
+class Rubric:
+    criteria: list[RubricCriterion]
+    scale_digits: int
+
+
 QTI_NS = "http://www.imsglobal.org/xsd/imsqti_result_v3p0"
+ITEM_NS = "http://www.imsglobal.org/xsd/imsqti_v3p0"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
 SCHEMA_LOCATION = f"{QTI_NS} {QTI_NS}.xsd"
 
@@ -33,7 +46,9 @@ ET.register_namespace("", QTI_NS)
 ET.register_namespace("xsi", XSI_NS)
 
 QUESTION_PATTERN = re.compile(r"^q(\d+)/(title|correct|answer|score)$")
+ITEM_RESULT_PATTERN = re.compile(r"^Q(\d+)$")
 PLACEHOLDER_PATTERN = re.compile(r"\$\{([^}]+)\}")
+RUBRIC_LINE_PATTERN = re.compile(r"^\s*\[([+-]?\d+(?:\.\d+)?)\]\s*(.+?)\s*$")
 
 REQUIRED_HEADERS = (
     "classId",
@@ -70,13 +85,19 @@ CONTEXT_IDENTIFIERS = (
 
 
 def convert_csv_text_to_qti_results(
-    csv_text: str, *, timezone: str = "Asia/Tokyo"
+    csv_text: str,
+    *,
+    timezone: str = "Asia/Tokyo",
+    item_source_xmls: Iterable[str] | None = None,
+    item_identifier_map: dict[str, str] | None = None,
 ) -> list[QtiResultDocument]:
     """Convert Track LMS CSV content into QTI Results Reporting XML documents."""
     if not csv_text or not csv_text.strip():
         raise ConversionError("CSV input is empty.")
 
     tzinfo = _load_timezone(timezone)
+    item_rubrics = _parse_item_rubrics(item_source_xmls)
+    item_mapping = _validate_item_mapping(item_identifier_map, item_rubrics)
 
     with io.StringIO(csv_text) as handle:
         reader = csv.DictReader(handle)
@@ -109,6 +130,10 @@ def convert_csv_text_to_qti_results(
                 start_at=start_at,
                 question_indices=question_indices,
             )
+            if item_rubrics is not None:
+                _apply_rubric_scoring(
+                    root, normalized_row, item_rubrics, item_mapping
+                )
             xml = _serialize_xml(root)
             results.append(QtiResultDocument(result_id=result_id, xml=xml))
 
@@ -364,6 +389,78 @@ def _append_item_results(
         )
 
 
+def _apply_rubric_scoring(
+    root: ET.Element,
+    row: dict[str, str | None],
+    item_rubrics: dict[str, Rubric],
+    item_identifier_map: dict[str, str],
+) -> None:
+    test_result = root.find(_qti("testResult"))
+    if test_result is None:
+        raise ConversionError("testResult not found for scoring update.")
+
+    item_results = root.findall(_qti("itemResult"))
+    if not item_results:
+        raise ConversionError("itemResult not found for scoring update.")
+
+    processed_scores: list[tuple[int, int]] = []
+
+    for item_result in item_results:
+        identifier = item_result.attrib.get("identifier")
+        if not identifier:
+            raise ConversionError("itemResult missing identifier for scoring update.")
+
+        mapped_identifier = item_identifier_map.get(identifier)
+        if not mapped_identifier:
+            raise ConversionError(f"Missing item mapping for result item: {identifier}")
+
+        rubric = item_rubrics.get(mapped_identifier)
+        if rubric is None:
+            raise ConversionError(f"Scoring source not found for item: {mapped_identifier}")
+
+        question_index = _parse_question_index(identifier)
+        score_value = row.get(f"q{question_index}/score")
+        correct = row.get(f"q{question_index}/correct")
+        answer = row.get(f"q{question_index}/answer")
+        question_type = _detect_question_type(correct, answer)
+
+        all_met = _criteria_all_met(question_type, score_value, question_index)
+        item_score_scaled = 0
+
+        for rubric_index, criterion in enumerate(rubric.criteria, start=1):
+            if all_met:
+                item_score_scaled += _to_scaled_int(
+                    criterion.points, rubric.scale_digits
+                )
+            _upsert_outcome_variable(
+                item_result,
+                identifier=f"RUBRIC_{rubric_index}_MET",
+                base_type="boolean",
+                value="true" if all_met else "false",
+            )
+
+        _upsert_outcome_variable(
+            item_result,
+            identifier="SCORE",
+            base_type="float",
+            value=_format_scaled(item_score_scaled, rubric.scale_digits),
+        )
+        processed_scores.append((item_score_scaled, rubric.scale_digits))
+
+    test_scale = max((scale for _, scale in processed_scores), default=0)
+    test_score_scaled = 0
+    for score_value, scale in processed_scores:
+        multiplier = 10 ** (test_scale - scale)
+        test_score_scaled += score_value * multiplier
+
+    _upsert_outcome_variable(
+        test_result,
+        identifier="SCORE",
+        base_type="float",
+        value=_format_scaled(test_score_scaled, test_scale),
+    )
+
+
 def _append_response_variable(
     parent: ET.Element,
     *,
@@ -398,6 +495,39 @@ def _append_outcome_variable(
 ) -> None:
     if value is None:
         return
+    outcome = ET.SubElement(
+        parent,
+        _qti("outcomeVariable"),
+        {"identifier": identifier, "cardinality": "single", "baseType": base_type},
+    )
+    value_element = ET.SubElement(outcome, _qti("value"))
+    value_element.text = value
+
+
+def _upsert_outcome_variable(
+    parent: ET.Element, *, identifier: str, base_type: str, value: str
+) -> None:
+    matches = [
+        outcome
+        for outcome in parent.findall(_qti("outcomeVariable"))
+        if outcome.attrib.get("identifier") == identifier
+    ]
+    if matches:
+        outcome = matches[0]
+        outcome.attrib["baseType"] = base_type
+        outcome.attrib["cardinality"] = "single"
+        values = outcome.findall(_qti("value"))
+        if values:
+            values[0].text = value
+            for extra in values[1:]:
+                outcome.remove(extra)
+        else:
+            value_element = ET.SubElement(outcome, _qti("value"))
+            value_element.text = value
+        for extra in matches[1:]:
+            parent.remove(extra)
+        return
+
     outcome = ET.SubElement(
         parent,
         _qti("outcomeVariable"),
@@ -482,6 +612,10 @@ def _qti(tag: str) -> str:
     return f"{{{QTI_NS}}}{tag}"
 
 
+def _qti_item(tag: str) -> str:
+    return f"{{{ITEM_NS}}}{tag}"
+
+
 def _serialize_xml(root: ET.Element) -> str:
     ET.indent(root, space="  ", level=0)
     return ET.tostring(root, encoding="unicode")
@@ -503,3 +637,179 @@ def _fallback_timezone(timezone_name: str) -> timezone | None:
     if timezone_name == "Asia/Tokyo":
         return timezone(timedelta(hours=9))
     return None
+
+
+def _parse_item_rubrics(
+    item_source_xmls: Iterable[str] | None,
+) -> dict[str, Rubric] | None:
+    if item_source_xmls is None:
+        return None
+    rubrics: dict[str, Rubric] = {}
+    for xml in item_source_xmls:
+        root = _parse_item_source_xml(xml)
+        identifier = root.attrib.get("identifier")
+        if not identifier:
+            raise ConversionError("Missing item identifier in scoring source.")
+        if identifier in rubrics:
+            raise ConversionError(f"Duplicate item identifier in sources: {identifier}")
+        rubrics[identifier] = _extract_rubric(root, identifier)
+    return rubrics
+
+
+def _validate_item_mapping(
+    item_identifier_map: dict[str, str] | None, item_rubrics: dict[str, Rubric] | None
+) -> dict[str, str] | None:
+    if item_rubrics is None:
+        if item_identifier_map:
+            raise ConversionError("Item mapping provided without item sources.")
+        return None
+
+    if not item_identifier_map:
+        raise ConversionError("Item mapping is required when item sources are provided.")
+
+    item_ids = list(item_identifier_map.values())
+    if any(not isinstance(key, str) or not key for key in item_identifier_map.keys()):
+        raise ConversionError("Item mapping contains an empty result item identifier.")
+    if any(not isinstance(value, str) or not value for value in item_ids):
+        raise ConversionError("Item mapping contains an empty item identifier.")
+    if len(set(item_ids)) != len(item_ids):
+        raise ConversionError("Item mapping must be one-to-one.")
+
+    for item_id in item_ids:
+        if item_id not in item_rubrics:
+            raise ConversionError(f"Mapped item identifier not found: {item_id}")
+
+    return item_identifier_map
+
+
+def _parse_item_source_xml(xml: str) -> ET.Element:
+    try:
+        root = ET.fromstring(xml)
+    except ET.ParseError as exc:
+        raise ConversionError(f"Failed to parse item source: {exc}") from exc
+
+    namespace = _extract_namespace(root.tag)
+    if namespace and namespace != ITEM_NS:
+        raise ConversionError(f"Unexpected item namespace: {namespace}")
+
+    if _strip_namespace(root.tag) != "qti-assessment-item":
+        raise ConversionError("Root element must be qti-assessment-item.")
+
+    return root
+
+
+def _extract_namespace(tag: str) -> str | None:
+    if tag.startswith("{"):
+        return tag.split("}")[0][1:]
+    return None
+
+
+def _strip_namespace(tag: str) -> str:
+    return tag.split("}", 1)[1] if tag.startswith("{") else tag
+
+
+def _extract_rubric(root: ET.Element, identifier: str) -> Rubric:
+    use_namespace = _extract_namespace(root.tag) == ITEM_NS
+    item_body = root.find(
+        _qti_item("qti-item-body") if use_namespace else "qti-item-body"
+    )
+    if item_body is None:
+        raise ConversionError(f"Scorer rubric not found for item: {identifier}")
+
+    rubric_blocks = item_body.findall(
+        _qti_item("qti-rubric-block") if use_namespace else "qti-rubric-block"
+    )
+    scorer_block = None
+    for block in rubric_blocks:
+        if block.attrib.get("view") == "scorer":
+            scorer_block = block
+            break
+    if scorer_block is None:
+        raise ConversionError(f"Scorer rubric not found for item: {identifier}")
+
+    paragraphs = scorer_block.findall(
+        _qti_item("qti-p") if use_namespace else "qti-p"
+    )
+    if not paragraphs:
+        raise ConversionError(f"Scorer rubric not found for item: {identifier}")
+
+    criteria: list[RubricCriterion] = []
+    scale_digits = 0
+    for index, paragraph in enumerate(paragraphs, start=1):
+        text = "".join(paragraph.itertext()).strip()
+        match = RUBRIC_LINE_PATTERN.match(text)
+        if not match:
+            raise ConversionError(
+                f"Rubric line parse failed at index {index} for item: {identifier}"
+            )
+        points = match.group(1)
+        criterion_text = match.group(2).strip()
+        try:
+            parsed = float(points)
+        except ValueError as exc:
+            raise ConversionError(
+                f"Invalid rubric points at index {index} for item: {identifier}"
+            ) from exc
+        if not parsed == parsed:
+            raise ConversionError(
+                f"Invalid rubric points at index {index} for item: {identifier}"
+            )
+        scale_digits = max(scale_digits, _decimal_places(points))
+        criteria.append(RubricCriterion(points=points, text=criterion_text))
+
+    return Rubric(criteria=criteria, scale_digits=scale_digits)
+
+
+def _parse_question_index(identifier: str) -> int:
+    match = ITEM_RESULT_PATTERN.match(identifier)
+    if not match:
+        raise ConversionError(f"Unsupported itemResult identifier: {identifier}")
+    return int(match.group(1))
+
+
+def _criteria_all_met(
+    question_type: str, score_value: str | None, question_index: int
+) -> bool:
+    if question_type == "descriptive":
+        return False
+
+    if score_value is None:
+        raise ConversionError(f"Missing q{question_index}/score for scoring update.")
+
+    try:
+        score = float(score_value)
+    except ValueError as exc:
+        raise ConversionError(
+            f"Invalid q{question_index}/score for scoring update."
+        ) from exc
+    return score != 0.0
+
+
+def _decimal_places(value: str) -> int:
+    normalized = value[1:] if value.startswith("+") else value
+    index = normalized.find(".")
+    return 0 if index == -1 else len(normalized) - index - 1
+
+
+def _to_scaled_int(value: str, scale_digits: int) -> int:
+    normalized = value[1:] if value.startswith("+") else value
+    negative = normalized.startswith("-")
+    cleaned = normalized[1:] if negative else normalized
+    whole, _, frac = cleaned.partition(".")
+    padded = (frac or "").ljust(scale_digits, "0")[:scale_digits]
+    scale_factor = 10**scale_digits
+    scaled = int(whole or "0") * scale_factor + int(padded or "0")
+    return -scaled if negative else scaled
+
+
+def _format_scaled(value: int, scale_digits: int) -> str:
+    if scale_digits == 0:
+        return str(value)
+    sign = "-" if value < 0 else ""
+    abs_value = abs(value)
+    scale_factor = 10**scale_digits
+    whole = abs_value // scale_factor
+    frac = str(abs_value % scale_factor).rjust(scale_digits, "0")
+    raw = f"{whole}.{frac}"
+    trimmed = re.sub(r"\.?0+$", "", raw)
+    return f"{sign}{trimmed}"

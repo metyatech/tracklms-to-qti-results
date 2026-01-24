@@ -5,6 +5,7 @@
 - One output document is produced per input row (resultId).
 - Standard QTI variables are used where available. Fields without a standard equivalent
   are emitted as custom identifiers prefixed with TRACKLMS_.
+- Optional rubric-based scoring results are emitted when QTI item sources are provided.
 
 ## Namespaces
 - Default namespace: http://www.imsglobal.org/xsd/imsqti_result_v3p0
@@ -163,6 +164,41 @@ Question type is determined by the q{n}/correct and q{n}/answer fields:
 - correctResponse: values derived from ${...} placeholders in q{n}/correct
   (if placeholder content is wrapped in /.../, keep the /.../ string)
 - candidateResponse: values from q{n}/answer split by ';' in order
+
+## Optional rubric-based scoring results
+When QTI item sources are provided, the converter emits rubric outcomes and
+recalculates item/test scores based on the rubric format
+(`qti-rubric-block view="scorer"` with `[<points>] <criterion>` lines).
+
+### Rubric outcome variables
+For each rubric criterion, an outcome variable is added under the matching
+itemResult:
+
+- identifier: RUBRIC_{index}_MET (1-based rubric order)
+- baseType: boolean
+- value: true/false
+
+Item matching:
+- QTI item identifiers are derived from item file names (without extension).
+- A mapping CSV must be provided to map itemResult identifiers (Q{n}) to item identifiers.
+
+Mapping CSV format:
+
+```
+resultItemIdentifier,itemIdentifier
+Q1,item-001
+Q2,item-002
+```
+
+### Criteria evaluation rules (without scoring JSON)
+- Descriptive: always false for all rubric criteria.
+- Choice: if q{n}/score is non-zero, all criteria are true; otherwise all false.
+- Fill-in-the-blank: if q{n}/score is non-zero, all criteria are true; otherwise all false.
+
+### SCORE calculation
+- Item-level SCORE is calculated as the sum of rubric points for criteria
+  marked true.
+- Test-level SCORE is calculated as the sum of item-level scores.
 
 ## Timestamp handling
 - Input timestamps (startAt/endAt) are assumed to be Track LMS local time without timezone.

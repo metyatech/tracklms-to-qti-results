@@ -85,6 +85,14 @@ def _normalize_element(element: ET.Element) -> tuple:
     )
 
 
+def _find_outcome_value(parent: ET.Element, identifier: str) -> str | None:
+    for outcome in parent.findall("qti:outcomeVariable", NS):
+        if outcome.attrib.get("identifier") == identifier:
+            value_element = outcome.find("qti:value", NS)
+            return value_element.text if value_element is not None else None
+    return None
+
+
 def _run_cli(
     args: list[str],
     *,
@@ -208,6 +216,37 @@ class CliTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((out_dir / "assessmentResult-98765.xml").exists())
+        finally:
+            _cleanup_temp_dir(Path(temp_dir))
+
+    def test_cli_applies_rubric_scoring_with_mapping(self) -> None:
+        csv_path = FIXTURE_DIR / "descriptive.csv"
+        item_map_path = FIXTURE_DIR / "item-map.csv"
+        items_dir = FIXTURE_DIR / "items"
+        temp_dir = _temp_dir()
+        try:
+            out_dir = Path(temp_dir)
+            result = _run_cli(
+                [
+                    str(csv_path),
+                    "--out-dir",
+                    str(out_dir),
+                    "--items-dir",
+                    str(items_dir),
+                    "--item-map",
+                    str(item_map_path),
+                ]
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            output_file = out_dir / "assessmentResult-98765.xml"
+            root = ET.fromstring(output_file.read_text(encoding="utf-8"))
+            q1 = root.find("qti:itemResult[@identifier='Q1']", NS)
+            self.assertIsNotNone(q1)
+            rubric_1 = _find_outcome_value(q1, "RUBRIC_1_MET")
+            rubric_2 = _find_outcome_value(q1, "RUBRIC_2_MET")
+            self.assertEqual(rubric_1, "false")
+            self.assertEqual(rubric_2, "false")
         finally:
             _cleanup_temp_dir(Path(temp_dir))
 
