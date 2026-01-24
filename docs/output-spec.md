@@ -41,8 +41,8 @@ The testResult element represents the assessment attempt. This tool emits a test
 when at least one outcome or response variable is available.
 
 Attributes:
-- identifier: test/material identifier (id, or matrerialId if id is empty).
-- datestamp: attempt end time (endAt) in ISO 8601; if endAt is missing, use startAt.
+- identifier: test/material identifier (id).
+- datestamp: attempt end time (endAt) in ISO 8601.
 
 ### itemResult
 An itemResult is emitted for each question column group (q{n}/...).
@@ -50,7 +50,7 @@ An itemResult is emitted for each question column group (q{n}/...).
 Attributes:
 - identifier: Q{n}
 - sequenceIndex: n
-- datestamp: attempt end time (endAt) in ISO 8601; if endAt is missing, use startAt.
+- datestamp: attempt end time (endAt) in ISO 8601.
 - sessionStatus: final
 
 ### responseVariable and outcomeVariable
@@ -140,7 +140,7 @@ For each question index n (starting at 1), emit an itemResult with:
     <sessionIdentifier sourceID="urn:tracklms:resultId" identifier="98765" />
     <sessionIdentifier sourceID="urn:tracklms:account" identifier="sample.user@example.com" />
   </context>
-  <testResult identifier="55555" datestamp="2026-01-01T09:30:00+09:00">
+  <testResult identifier="1001" datestamp="2026-01-01T09:30:00+09:00">
     <responseVariable identifier="duration" cardinality="single" baseType="float">
       <candidateResponse>
         <value>1800</value>
