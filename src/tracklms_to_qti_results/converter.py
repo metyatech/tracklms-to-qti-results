@@ -109,7 +109,7 @@ def convert_csv_text_to_qti_results(
                 start_at=start_at,
                 question_indices=question_indices,
             )
-            xml = ET.tostring(root, encoding="unicode")
+            xml = _serialize_xml(root)
             results.append(QtiResultDocument(result_id=result_id, xml=xml))
 
     return results
@@ -480,6 +480,11 @@ def _clean_value(value: str | None) -> str | None:
 
 def _qti(tag: str) -> str:
     return f"{{{QTI_NS}}}{tag}"
+
+
+def _serialize_xml(root: ET.Element) -> str:
+    ET.indent(root, space="  ", level=0)
+    return ET.tostring(root, encoding="unicode")
 
 
 def _load_timezone(timezone_name: str) -> ZoneInfo | timezone:
