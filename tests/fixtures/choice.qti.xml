@@ -3,17 +3,17 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqti_result_v3p0 http://www.imsglobal.org/xsd/imsqti_result_v3p0.xsd">
   <context sourcedId="sample.user@example.com">
-    <sessionIdentifier sourceID="urn:tracklms:classId" identifier="12345" />
-    <sessionIdentifier sourceID="urn:tracklms:className" identifier="Sample Class" />
-    <sessionIdentifier sourceID="urn:tracklms:traineeId" identifier="99999" />
-    <sessionIdentifier sourceID="urn:tracklms:account" identifier="sample.user@example.com" />
-    <sessionIdentifier sourceID="urn:tracklms:traineeName" identifier="Sample User" />
-    <sessionIdentifier sourceID="urn:tracklms:traineeKlassId" identifier="88888" />
-    <sessionIdentifier sourceID="urn:tracklms:materialId" identifier="55555" />
-    <sessionIdentifier sourceID="urn:tracklms:materialTitle" identifier="Sample Test" />
-    <sessionIdentifier sourceID="urn:tracklms:materialType" identifier="Challenge" />
-    <sessionIdentifier sourceID="urn:tracklms:MaterialVersionNumber" identifier="1.0" />
-    <sessionIdentifier sourceID="urn:tracklms:resultId" identifier="98766" />
+    <sessionIdentifier sourceID="classId" identifier="12345" />
+    <sessionIdentifier sourceID="className" identifier="Sample Class" />
+    <sessionIdentifier sourceID="candidateId" identifier="99999" />
+    <sessionIdentifier sourceID="candidateAccount" identifier="sample.user@example.com" />
+    <sessionIdentifier sourceID="candidateName" identifier="Sample User" />
+    <sessionIdentifier sourceID="candidateClassId" identifier="88888" />
+    <sessionIdentifier sourceID="materialId" identifier="55555" />
+    <sessionIdentifier sourceID="materialTitle" identifier="Sample Test" />
+    <sessionIdentifier sourceID="materialType" identifier="Challenge" />
+    <sessionIdentifier sourceID="materialVersionNumber" identifier="1.0" />
+    <sessionIdentifier sourceID="resultId" identifier="98766" />
   </context>
   <testResult identifier="1002" datestamp="2026-01-01T10:10:00+09:00">
     <responseVariable identifier="duration" cardinality="single" baseType="duration">

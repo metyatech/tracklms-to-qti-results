@@ -55,17 +55,17 @@ REQUIRED_HEADERS = (
 REQUIRED_ROW_FIELDS = ("account", "id", "resultId", "endAt")
 
 CONTEXT_IDENTIFIERS = (
-    ("urn:tracklms:classId", "classId"),
-    ("urn:tracklms:className", "className"),
-    ("urn:tracklms:traineeId", "traineeId"),
-    ("urn:tracklms:account", "account"),
-    ("urn:tracklms:traineeName", "traineeName"),
-    ("urn:tracklms:traineeKlassId", "traineeKlassId"),
-    ("urn:tracklms:materialId", "matrerialId"),
-    ("urn:tracklms:materialTitle", "materialTitle"),
-    ("urn:tracklms:materialType", "materialType"),
-    ("urn:tracklms:MaterialVersionNumber", "MaterialVersionNumber"),
-    ("urn:tracklms:resultId", "resultId"),
+    ("classId", "classId"),
+    ("className", "className"),
+    ("candidateId", "traineeId"),
+    ("candidateAccount", "account"),
+    ("candidateName", "traineeName"),
+    ("candidateClassId", "traineeKlassId"),
+    ("materialId", "matrerialId"),
+    ("materialTitle", "materialTitle"),
+    ("materialType", "materialType"),
+    ("materialVersionNumber", "MaterialVersionNumber"),
+    ("resultId", "resultId"),
 )
 
 

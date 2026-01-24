@@ -35,7 +35,8 @@ Attributes:
 The context element provides identifiers that describe the session and the learner.
 
 - sourcedId (attribute): the unique candidate identifier (account).
-- sessionIdentifier: repeatable identifiers for class, trainee, and material metadata.
+- sessionIdentifier: repeatable identifiers using common sourceID keys for class,
+  candidate, and material metadata.
 
 ### testResult
 The testResult element represents the assessment attempt.
@@ -97,20 +98,20 @@ Base type mapping:
   the conversion fails with a clear error.
 
 ### Context identifiers
-| Track LMS column      | Output location                                                                               | Notes                               |
-| --------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------- |
-| account               | context/@sourcedId                                                                            | Candidate identifier (email).       |
-| classId               | context/sessionIdentifier (sourceID = urn:tracklms:classId, identifier = value)               | String value.                       |
-| className             | context/sessionIdentifier (sourceID = urn:tracklms:className, identifier = value)             | String value.                       |
-| traineeId             | context/sessionIdentifier (sourceID = urn:tracklms:traineeId, identifier = value)             | String value.                       |
-| account               | context/sessionIdentifier (sourceID = urn:tracklms:account, identifier = value)               | String value.                       |
-| traineeName           | context/sessionIdentifier (sourceID = urn:tracklms:traineeName, identifier = value)           | String value.                       |
-| traineeKlassId        | context/sessionIdentifier (sourceID = urn:tracklms:traineeKlassId, identifier = value)        | String value.                       |
-| matrerialId           | context/sessionIdentifier (sourceID = urn:tracklms:materialId, identifier = value)            | String value.                       |
-| materialTitle         | context/sessionIdentifier (sourceID = urn:tracklms:materialTitle, identifier = value)         | String value.                       |
-| materialType          | context/sessionIdentifier (sourceID = urn:tracklms:materialType, identifier = value)          | String value.                       |
-| MaterialVersionNumber | context/sessionIdentifier (sourceID = urn:tracklms:MaterialVersionNumber, identifier = value) | String value (note capitalization). |
-| resultId              | context/sessionIdentifier (sourceID = urn:tracklms:resultId, identifier = value)              | Attempt identifier.                 |
+| Track LMS column      | Output location                                                                  | Notes                               |
+| --------------------- | -------------------------------------------------------------------------------- | ----------------------------------- |
+| account               | context/@sourcedId                                                               | Candidate identifier (email).       |
+| classId               | context/sessionIdentifier (sourceID = classId, identifier = value)               | String value.                       |
+| className             | context/sessionIdentifier (sourceID = className, identifier = value)             | String value.                       |
+| traineeId             | context/sessionIdentifier (sourceID = candidateId, identifier = value)           | String value.                       |
+| account               | context/sessionIdentifier (sourceID = candidateAccount, identifier = value)      | String value.                       |
+| traineeName           | context/sessionIdentifier (sourceID = candidateName, identifier = value)         | String value.                       |
+| traineeKlassId        | context/sessionIdentifier (sourceID = candidateClassId, identifier = value)      | String value.                       |
+| matrerialId           | context/sessionIdentifier (sourceID = materialId, identifier = value)            | String value.                       |
+| materialTitle         | context/sessionIdentifier (sourceID = materialTitle, identifier = value)         | Unified title.                      |
+| materialType          | context/sessionIdentifier (sourceID = materialType, identifier = value)          | String value.                       |
+| MaterialVersionNumber | context/sessionIdentifier (sourceID = materialVersionNumber, identifier = value) | String value (note capitalization). |
+| resultId              | context/sessionIdentifier (sourceID = resultId, identifier = value)              | Attempt identifier.                 |
 
 ### Test-level variables
 | Track LMS column         | Output element        | Identifier                  | baseType   | Notes                             |
