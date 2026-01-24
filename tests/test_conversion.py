@@ -101,6 +101,40 @@ def _has_response_variable(root: ET.Element, identifier: str) -> bool:
     )
 
 
+def _has_outcome_variable(root: ET.Element, identifier: str) -> bool:
+    return any(
+        outcome.attrib.get("identifier") == identifier
+        for outcome in root.findall(".//qti:outcomeVariable", NS)
+    )
+
+
+def _find_item_result(root: ET.Element, identifier: str) -> ET.Element | None:
+    return root.find(f".//qti:itemResult[@identifier='{identifier}']", NS)
+
+
+def _find_response_variable(parent: ET.Element, identifier: str) -> ET.Element | None:
+    for response in parent.findall("qti:responseVariable", NS):
+        if response.attrib.get("identifier") == identifier:
+            return response
+    return None
+
+
+def _response_values(
+    response_variable: ET.Element | None, response_tag: str
+) -> list[str]:
+    if response_variable is None:
+        return []
+    container = response_variable.find(f"qti:{response_tag}", NS)
+    if container is None:
+        return []
+    values: list[str] = []
+    for value in container.findall("qti:value", NS):
+        cleaned = _clean_text(value.text)
+        if cleaned is not None:
+            values.append(cleaned)
+    return values
+
+
 class ConversionFixturesTest(unittest.TestCase):
     def assert_xml_equivalent(self, actual: str, expected: str) -> None:
         actual_root = ET.fromstring(actual)
@@ -146,6 +180,16 @@ class ConversionValidationTest(unittest.TestCase):
         with self.assertRaisesRegex(ConversionError, "id"):
             convert_csv_text_to_qti_results(csv_text)
 
+    def test_missing_result_id_raises_error(self) -> None:
+        csv_text = _build_csv_text({"resultId": ""})
+        with self.assertRaisesRegex(ConversionError, "resultId"):
+            convert_csv_text_to_qti_results(csv_text)
+
+    def test_missing_end_at_raises_error(self) -> None:
+        csv_text = _build_csv_text({"endAt": ""})
+        with self.assertRaisesRegex(ConversionError, "endAt"):
+            convert_csv_text_to_qti_results(csv_text)
+
     def test_deadline_expired_maps_to_incomplete(self) -> None:
         csv_text = _build_csv_text({"status": "DeadlineExpired"})
         results = convert_csv_text_to_qti_results(csv_text)
@@ -154,6 +198,14 @@ class ConversionValidationTest(unittest.TestCase):
         root = ET.fromstring(results[0].xml)
         self.assertEqual(_find_outcome_value(root, "completionStatus"), "incomplete")
 
+    def test_unknown_status_maps_to_unknown(self) -> None:
+        csv_text = _build_csv_text({"status": "InProgress"})
+        results = convert_csv_text_to_qti_results(csv_text)
+
+        self.assertEqual(len(results), 1)
+        root = ET.fromstring(results[0].xml)
+        self.assertEqual(_find_outcome_value(root, "completionStatus"), "unknown")
+
     def test_optional_duration_omitted_when_empty(self) -> None:
         csv_text = _build_csv_text({"timeSpentSeconds": ""})
         results = convert_csv_text_to_qti_results(csv_text)
@@ -161,3 +213,108 @@ class ConversionValidationTest(unittest.TestCase):
         self.assertEqual(len(results), 1)
         root = ET.fromstring(results[0].xml)
         self.assertFalse(_has_response_variable(root, "duration"))
+
+    def test_optional_outcomes_omitted_when_empty(self) -> None:
+        csv_text = _build_csv_text(
+            {
+                "materialTimeLimitMinutes": "",
+                "isOptional": "",
+                "startAt": "",
+            }
+        )
+        results = convert_csv_text_to_qti_results(csv_text)
+
+        self.assertEqual(len(results), 1)
+        root = ET.fromstring(results[0].xml)
+        self.assertFalse(_has_outcome_variable(root, "TRACKLMS_TIME_LIMIT_MINUTES"))
+        self.assertFalse(_has_outcome_variable(root, "TRACKLMS_IS_OPTIONAL"))
+        self.assertFalse(_has_outcome_variable(root, "TRACKLMS_START_AT"))
+
+    def test_missing_required_header_raises_error(self) -> None:
+        csv_text = "classId,className\r\n1,Sample Class\r\n"
+        with self.assertRaisesRegex(ConversionError, "account|header|column"):
+            convert_csv_text_to_qti_results(csv_text)
+
+
+class ConversionMappingTest(unittest.TestCase):
+    def test_restart_count_maps_to_num_attempts(self) -> None:
+        csv_text = _build_csv_text({"restartCount": "2"})
+        results = convert_csv_text_to_qti_results(csv_text)
+
+        self.assertEqual(len(results), 1)
+        root = ET.fromstring(results[0].xml)
+        test_result = root.find("qti:testResult", NS)
+        self.assertIsNotNone(test_result)
+        response = _find_response_variable(test_result, "numAttempts")
+        self.assertEqual(_response_values(response, "candidateResponse"), ["3"])
+
+    def test_timezone_override_applies_to_timestamps(self) -> None:
+        csv_text = _build_csv_text({})
+        results = convert_csv_text_to_qti_results(csv_text, timezone="UTC")
+
+        self.assertEqual(len(results), 1)
+        root = ET.fromstring(results[0].xml)
+        test_result = root.find("qti:testResult", NS)
+        self.assertIsNotNone(test_result)
+        datestamp = test_result.attrib.get("datestamp")
+        self.assertIsNotNone(datestamp)
+        self.assertTrue(datestamp.endswith("+00:00") or datestamp.endswith("Z"))
+
+        start_at = _find_outcome_value(root, "TRACKLMS_START_AT")
+        end_at = _find_outcome_value(root, "TRACKLMS_END_AT")
+        self.assertIsNotNone(start_at)
+        self.assertIsNotNone(end_at)
+        self.assertTrue(start_at.endswith("+00:00") or start_at.endswith("Z"))
+        self.assertTrue(end_at.endswith("+00:00") or end_at.endswith("Z"))
+
+    def test_multiple_question_types_map_to_item_results(self) -> None:
+        csv_text = _build_csv_text(
+            {
+                "questionCount": "3",
+                "correctCount": "2",
+                "q1/title": "descriptive-question-1",
+                "q1/correct": "",
+                "q1/answer": "free response",
+                "q1/score": "1",
+                "q2/title": "choice-question-2",
+                "q2/correct": "2",
+                "q2/answer": "1",
+                "q2/score": "0",
+                "q3/title": "cloze-question-3",
+                "q3/correct": "${A};${/B/}",
+                "q3/answer": "A;B",
+                "q3/score": "1",
+            }
+        )
+        results = convert_csv_text_to_qti_results(csv_text)
+
+        self.assertEqual(len(results), 1)
+        root = ET.fromstring(results[0].xml)
+        items = root.findall("qti:itemResult", NS)
+        self.assertEqual(len(items), 3)
+
+        q1 = _find_item_result(root, "Q1")
+        self.assertIsNotNone(q1)
+        q1_response = _find_response_variable(q1, "RESPONSE")
+        self.assertIsNotNone(q1_response)
+        self.assertEqual(q1_response.attrib.get("baseType"), "string")
+        self.assertEqual(q1_response.attrib.get("cardinality"), "single")
+        self.assertIsNone(q1_response.find("qti:correctResponse", NS))
+
+        q2 = _find_item_result(root, "Q2")
+        self.assertIsNotNone(q2)
+        q2_response = _find_response_variable(q2, "RESPONSE")
+        self.assertIsNotNone(q2_response)
+        self.assertEqual(q2_response.attrib.get("baseType"), "identifier")
+        self.assertEqual(q2_response.attrib.get("cardinality"), "single")
+        self.assertEqual(_response_values(q2_response, "correctResponse"), ["CHOICE_2"])
+        self.assertEqual(_response_values(q2_response, "candidateResponse"), ["CHOICE_1"])
+
+        q3 = _find_item_result(root, "Q3")
+        self.assertIsNotNone(q3)
+        q3_response = _find_response_variable(q3, "RESPONSE")
+        self.assertIsNotNone(q3_response)
+        self.assertEqual(q3_response.attrib.get("baseType"), "string")
+        self.assertEqual(q3_response.attrib.get("cardinality"), "ordered")
+        self.assertEqual(_response_values(q3_response, "correctResponse"), ["A", "/B/"])
+        self.assertEqual(_response_values(q3_response, "candidateResponse"), ["A", "B"])
