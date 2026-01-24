@@ -1,0 +1,202 @@
+from __future__ import annotations
+
+import csv
+import io
+import subprocess
+import sys
+import shutil
+import uuid
+import unittest
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+FIXTURE_DIR = ROOT_DIR / "tests" / "fixtures"
+RUN_CLI = ROOT_DIR / "run_cli.py"
+QTI_NS = "http://www.imsglobal.org/xsd/imsqti_result_v3p0"
+NS = {"qti": QTI_NS}
+
+
+def _load_fixture_text(filename: str) -> str:
+    return (FIXTURE_DIR / filename).read_text(encoding="utf-8")
+
+
+def _fixture_header() -> list[str]:
+    fixture_text = _load_fixture_text("descriptive.csv")
+    with io.StringIO(fixture_text) as handle:
+        reader = csv.reader(handle)
+        return next(reader)
+
+
+def _build_csv_text(overrides: dict[str, str]) -> str:
+    header = _fixture_header()
+    base_row = {
+        "classId": "1",
+        "className": "Sample Class",
+        "traineeId": "2",
+        "account": "sample.user@example.com",
+        "traineeName": "Sample User",
+        "traineeKlassId": "3",
+        "matrerialId": "4",
+        "materialTitle": "Sample Test",
+        "materialType": "Challenge",
+        "MaterialVersionNumber": "1.0",
+        "materialTimeLimitMinutes": "60",
+        "isOptional": "false",
+        "resultId": "200",
+        "status": "Completed",
+        "startAt": "2026/01/02 10:00:00",
+        "endAt": "2026/01/02 10:30:00",
+        "id": "999",
+        "title": "Sample Test",
+        "score": "1",
+        "questionCount": "1",
+        "correctCount": "1",
+        "timeSpentSeconds": "1800",
+        "restartCount": "0",
+        "q1/title": "descriptive-question-1",
+        "q1/correct": "",
+        "q1/answer": "console.log('hello');",
+        "q1/score": "1",
+    }
+    row = {name: "" for name in header}
+    row.update(base_row)
+    row.update(overrides)
+    output = io.StringIO()
+    writer = csv.writer(output, lineterminator="\r\n")
+    writer.writerow(header)
+    writer.writerow([row[name] for name in header])
+    return output.getvalue()
+
+
+def _clean_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    return stripped if stripped else None
+
+
+def _normalize_element(element: ET.Element) -> tuple:
+    return (
+        element.tag,
+        tuple(sorted(element.attrib.items())),
+        _clean_text(element.text),
+        tuple(_normalize_element(child) for child in list(element)),
+    )
+
+
+def _run_cli(
+    args: list[str], *, input_text: str | None = None
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(RUN_CLI), *args],
+        input=input_text,
+        text=True,
+        capture_output=True,
+        cwd=ROOT_DIR,
+    )
+
+
+def _temp_dir() -> Path:
+    base_dir = ROOT_DIR / "tests" / ".tmp_cli"
+    base_dir.mkdir(parents=True, exist_ok=True)
+    temp_dir = base_dir / f"run-{uuid.uuid4().hex}"
+    temp_dir.mkdir()
+    return temp_dir
+
+
+def _cleanup_temp_dir(path: Path) -> None:
+    shutil.rmtree(path, ignore_errors=True)
+    base_dir = path.parent
+    try:
+        if base_dir.exists() and not any(base_dir.iterdir()):
+            base_dir.rmdir()
+    except OSError:
+        pass
+
+
+class CliTest(unittest.TestCase):
+    def test_cli_writes_fixture_output(self) -> None:
+        csv_path = FIXTURE_DIR / "descriptive.csv"
+        expected_xml = _load_fixture_text("descriptive.qti.xml")
+        temp_dir = _temp_dir()
+        try:
+            out_dir = Path(temp_dir) / "out"
+            result = _run_cli([str(csv_path), "--out-dir", str(out_dir)])
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            output_file = out_dir / "assessmentResult-98765.xml"
+            self.assertTrue(output_file.exists())
+            actual_xml = output_file.read_text(encoding="utf-8")
+            self.assertEqual(
+                _normalize_element(ET.fromstring(actual_xml)),
+                _normalize_element(ET.fromstring(expected_xml)),
+            )
+        finally:
+            _cleanup_temp_dir(Path(temp_dir))
+
+    def test_cli_creates_output_directory(self) -> None:
+        csv_path = FIXTURE_DIR / "choice.csv"
+        temp_dir = _temp_dir()
+        try:
+            out_dir = Path(temp_dir) / "nested" / "results"
+            result = _run_cli([str(csv_path), "--out-dir", str(out_dir)])
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(out_dir.is_dir())
+            self.assertTrue((out_dir / "assessmentResult-98766.xml").exists())
+        finally:
+            _cleanup_temp_dir(Path(temp_dir))
+
+    def test_cli_timezone_override(self) -> None:
+        csv_path = FIXTURE_DIR / "cloze.csv"
+        temp_dir = _temp_dir()
+        try:
+            out_dir = Path(temp_dir)
+            result = _run_cli(
+                [str(csv_path), "--out-dir", str(out_dir), "--timezone", "UTC"]
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            output_file = out_dir / "assessmentResult-98767.xml"
+            root = ET.fromstring(output_file.read_text(encoding="utf-8"))
+            test_result = root.find("qti:testResult", NS)
+            self.assertIsNotNone(test_result)
+            datestamp = test_result.attrib.get("datestamp")
+            self.assertIsNotNone(datestamp)
+            self.assertTrue(datestamp.endswith("+00:00") or datestamp.endswith("Z"))
+        finally:
+            _cleanup_temp_dir(Path(temp_dir))
+
+    def test_cli_reads_from_stdin(self) -> None:
+        csv_text = _load_fixture_text("descriptive.csv")
+        temp_dir = _temp_dir()
+        try:
+            out_dir = Path(temp_dir)
+            result = _run_cli(["-", "--out-dir", str(out_dir)], input_text=csv_text)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((out_dir / "assessmentResult-98765.xml").exists())
+        finally:
+            _cleanup_temp_dir(Path(temp_dir))
+
+    def test_cli_reports_missing_input(self) -> None:
+        result = _run_cli([])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("input", result.stderr.lower())
+
+    def test_cli_reports_conversion_error(self) -> None:
+        csv_text = _build_csv_text({"account": ""})
+        temp_dir = _temp_dir()
+        try:
+            csv_path = Path(temp_dir) / "invalid.csv"
+            csv_path.write_text(csv_text, encoding="utf-8")
+            out_dir = Path(temp_dir) / "out"
+            result = _run_cli([str(csv_path), "--out-dir", str(out_dir)])
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("account", result.stderr.lower())
+            if out_dir.exists():
+                self.assertEqual(list(out_dir.glob("*.xml")), [])
+        finally:
+            _cleanup_temp_dir(Path(temp_dir))
