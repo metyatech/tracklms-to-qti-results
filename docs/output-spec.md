@@ -3,7 +3,8 @@
 ## Overview
 - Output format: XML using QTI 3.0 Results Reporting.
 - One output document is produced per input row (resultId).
-- The output captures a deterministic subset of the QTI Results Reporting model.
+- Standard QTI variables are used where available. Fields without a standard equivalent
+  are emitted as custom identifiers prefixed with TRACKLMS_.
 
 ## Namespaces
 - Default namespace: http://www.imsglobal.org/xsd/imsqti_result_v3p0
@@ -37,8 +38,7 @@ The context element provides identifiers that describe the session and the learn
 - sessionIdentifier: repeatable identifiers for class, trainee, and material metadata.
 
 ### testResult
-The testResult element represents the assessment attempt. This tool emits a testResult
-when at least one outcome or response variable is available.
+The testResult element represents the assessment attempt.
 
 Attributes:
 - identifier: test/material identifier (id).
@@ -54,17 +54,47 @@ Attributes:
 - sessionStatus: final
 
 ### responseVariable and outcomeVariable
-- Standard response/outcome variable identifiers are used where available (e.g., SCORE, completionStatus,
-  RESPONSE, numAttempts, duration).
-- For fields with no standard identifier, custom identifiers are used.
+Standard response/outcome variable identifiers are used where available (e.g., SCORE,
+completionStatus, RESPONSE, numAttempts, duration).
 
 Base type mapping:
-- integer: numeric counts (questionCount, correctCount, timeSpentSeconds, restartCount)
+- integer: numeric counts (questionCount, correctCount, restartCount)
 - float: numeric scores
 - boolean: isOptional
 - string: any textual value (status, titles, progress states)
 
+## Standard variable usage
+
+### completionStatus (outcomeVariable)
+- baseType: identifier
+- values: completed, incomplete, not_attempted, unknown
+- mapping from Track LMS status:
+  - Completed -> completed
+  - DeadlineExpired -> incomplete
+
+### SCORE (outcomeVariable)
+- baseType: float
+- mapping from Track LMS score
+
+### duration (responseVariable)
+- baseType: duration
+- value format: ISO 8601 duration (PT{seconds}S)
+- mapping: timeSpentSeconds -> PT{timeSpentSeconds}S
+
+### numAttempts (responseVariable)
+- baseType: integer
+- mapping: restartCount + 1
+
+### RESPONSE (responseVariable)
+- baseType and cardinality depend on question type
+
 ## Field mapping
+
+### Missing values
+- Do not apply fallbacks.
+- If an optional source field is empty, omit the corresponding attribute or variable.
+- If a required attribute cannot be emitted (e.g., sourcedId or testResult identifier),
+  the conversion fails with a clear error.
 
 ### Context identifiers
 | Track LMS column      | Output location                                                                               | Notes                               |
@@ -83,15 +113,21 @@ Base type mapping:
 | resultId              | context/sessionIdentifier (sourceID = urn:tracklms:resultId, identifier = value)              | Attempt identifier.                 |
 
 ### Test-level variables
-| Track LMS column | Output element   | Identifier              | baseType   | Notes                                                       |
-| ---------------- | ---------------- | ----------------------- | ---------- | ----------------------------------------------------------- |
-| status           | outcomeVariable  | completionStatus        | identifier | Map: Completed -> completed, DeadlineExpired -> incomplete. |
-| score            | outcomeVariable  | SCORE                   | float      | Standard test score.                                        |
-| timeSpentSeconds | responseVariable | duration                | float      | Seconds spent on the attempt.                               |
-| restartCount     | responseVariable | numAttempts             | integer    | numAttempts = restartCount + 1.                             |
-| questionCount    | outcomeVariable  | TRACKLMS_QUESTION_COUNT | integer    | No standard identifier.                                     |
-| correctCount     | outcomeVariable  | TRACKLMS_CORRECT_COUNT  | integer    | No standard identifier.                                     |
-| title            | outcomeVariable  | TRACKLMS_TITLE          | string     | No standard identifier.                                     |
+| Track LMS column         | Output element        | Identifier                  | baseType   | Notes                             |
+| ------------------------ | --------------------- | --------------------------- | ---------- | --------------------------------- |
+| status                   | outcomeVariable       | completionStatus            | identifier | Standard status mapping.          |
+| score                    | outcomeVariable       | SCORE                       | float      | Standard test score.              |
+| timeSpentSeconds         | responseVariable      | duration                    | duration   | ISO 8601 duration (PT{seconds}S). |
+| restartCount             | responseVariable      | numAttempts                 | integer    | numAttempts = restartCount + 1.   |
+| questionCount            | outcomeVariable       | TRACKLMS_QUESTION_COUNT     | integer    | No standard identifier.           |
+| correctCount             | outcomeVariable       | TRACKLMS_CORRECT_COUNT      | integer    | No standard identifier.           |
+| title                    | outcomeVariable       | TRACKLMS_TITLE              | string     | No standard identifier.           |
+| isOptional               | outcomeVariable       | TRACKLMS_IS_OPTIONAL        | boolean    | No standard identifier.           |
+| materialTimeLimitMinutes | outcomeVariable       | TRACKLMS_TIME_LIMIT_MINUTES | integer    | No standard identifier.           |
+| startAt                  | outcomeVariable       | TRACKLMS_START_AT           | string     | ISO 8601 timestamp.               |
+| endAt                    | outcomeVariable       | TRACKLMS_END_AT             | string     | ISO 8601 timestamp.               |
+| id                       | testResult@identifier | -                           | -          | Required to emit testResult.      |
+| endAt                    | testResult@datestamp  | -                           | -          | Required to emit datestamp.       |
 
 ### Question-level mapping (q{n})
 For each question index n (starting at 1), emit an itemResult with:
@@ -102,23 +138,29 @@ For each question index n (starting at 1), emit an itemResult with:
 - outcomeVariable identifier="TRACKLMS_ITEM_TITLE" for q{n}/title
 
 #### responseVariable mapping by question type
+Question type is determined by the q{n}/correct and q{n}/answer fields:
+
 1) Free-response (descriptive)
+- condition: q{n}/correct is empty
 - baseType: string
 - cardinality: single
 - correctResponse: omitted
 - candidateResponse: q{n}/answer
 
 2) Choice
-- baseType: integer
+- condition: q{n}/correct and q{n}/answer are numeric
+- baseType: identifier
 - cardinality: single
-- correctResponse: q{n}/correct
-- candidateResponse: q{n}/answer
+- correctResponse: CHOICE_{index}
+- candidateResponse: CHOICE_{index}
+- index: the numeric value as provided by Track LMS
 
 3) Fill-in-the-blank
+- condition: q{n}/correct includes one or more ${...} placeholders
 - baseType: string
 - cardinality: ordered
 - correctResponse: values derived from ${...} placeholders in q{n}/correct
-  (if placeholder content is wrapped in /.../, treat it as a regex string)
+  (if placeholder content is wrapped in /.../, keep the /.../ string)
 - candidateResponse: values from q{n}/answer split by ';' in order
 
 ## Timestamp handling
@@ -126,62 +168,11 @@ For each question index n (starting at 1), emit an itemResult with:
 - Output timestamps are emitted in ISO 8601 with timezone offset.
 - The timezone is configured by the converter (default: Asia/Tokyo).
 
-## Example (single attempt)
-```xml
-<assessmentResult
-  xmlns="http://www.imsglobal.org/xsd/imsqti_result_v3p0"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqti_result_v3p0 http://www.imsglobal.org/xsd/imsqti_result_v3p0.xsd">
-  <context sourcedId="sample.user@example.com">
-    <sessionIdentifier sourceID="urn:tracklms:classId" identifier="12345" />
-    <sessionIdentifier sourceID="urn:tracklms:traineeId" identifier="99999" />
-    <sessionIdentifier sourceID="urn:tracklms:materialId" identifier="55555" />
-    <sessionIdentifier sourceID="urn:tracklms:MaterialVersionNumber" identifier="1.0" />
-    <sessionIdentifier sourceID="urn:tracklms:resultId" identifier="98765" />
-    <sessionIdentifier sourceID="urn:tracklms:account" identifier="sample.user@example.com" />
-  </context>
-  <testResult identifier="1001" datestamp="2026-01-01T09:30:00+09:00">
-    <responseVariable identifier="duration" cardinality="single" baseType="float">
-      <candidateResponse>
-        <value>1800</value>
-      </candidateResponse>
-    </responseVariable>
-    <responseVariable identifier="numAttempts" cardinality="single" baseType="integer">
-      <candidateResponse>
-        <value>1</value>
-      </candidateResponse>
-    </responseVariable>
-    <outcomeVariable identifier="completionStatus" cardinality="single" baseType="identifier">
-      <value>completed</value>
-    </outcomeVariable>
-    <outcomeVariable identifier="SCORE" cardinality="single" baseType="float">
-      <value>80.0</value>
-    </outcomeVariable>
-    <outcomeVariable identifier="TRACKLMS_QUESTION_COUNT" cardinality="single" baseType="integer">
-      <value>4</value>
-    </outcomeVariable>
-    <outcomeVariable identifier="TRACKLMS_CORRECT_COUNT" cardinality="single" baseType="integer">
-      <value>3</value>
-    </outcomeVariable>
-    <outcomeVariable identifier="TRACKLMS_TITLE" cardinality="single" baseType="string">
-      <value>sample-test-title</value>
-    </outcomeVariable>
-  </testResult>
-  <itemResult identifier="Q1" sequenceIndex="1" datestamp="2026-01-01T09:30:00+09:00" sessionStatus="final">
-    <responseVariable identifier="RESPONSE" cardinality="single" baseType="string">
-      <candidateResponse>
-        <value>console.log('hello');</value>
-      </candidateResponse>
-    </responseVariable>
-    <outcomeVariable identifier="SCORE" cardinality="single" baseType="float">
-      <value>1</value>
-    </outcomeVariable>
-    <outcomeVariable identifier="TRACKLMS_ITEM_TITLE" cardinality="single" baseType="string">
-      <value>sample-free-response-question</value>
-    </outcomeVariable>
-  </itemResult>
-</assessmentResult>
-```
+## Examples (test cases)
+See the test case fixtures in `docs/test-cases/README.md`:
+- Descriptive: `docs/test-cases/descriptive.csv`, `docs/test-cases/descriptive.qti.xml`
+- Choice: `docs/test-cases/choice.csv`, `docs/test-cases/choice.qti.xml`
+- Fill-in-the-blank: `docs/test-cases/cloze.csv`, `docs/test-cases/cloze.qti.xml`
 
 ## Output file naming
 - One file per resultId.

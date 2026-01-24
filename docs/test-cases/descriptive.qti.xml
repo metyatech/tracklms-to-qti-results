@@ -1,0 +1,70 @@
+<assessmentResult
+  xmlns="http://www.imsglobal.org/xsd/imsqti_result_v3p0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqti_result_v3p0 http://www.imsglobal.org/xsd/imsqti_result_v3p0.xsd">
+  <context sourcedId="sample.user@example.com">
+    <sessionIdentifier sourceID="urn:tracklms:classId" identifier="12345" />
+    <sessionIdentifier sourceID="urn:tracklms:className" identifier="Sample Class" />
+    <sessionIdentifier sourceID="urn:tracklms:traineeId" identifier="99999" />
+    <sessionIdentifier sourceID="urn:tracklms:account" identifier="sample.user@example.com" />
+    <sessionIdentifier sourceID="urn:tracklms:traineeName" identifier="Sample User" />
+    <sessionIdentifier sourceID="urn:tracklms:traineeKlassId" identifier="88888" />
+    <sessionIdentifier sourceID="urn:tracklms:materialId" identifier="55555" />
+    <sessionIdentifier sourceID="urn:tracklms:materialTitle" identifier="Sample Test" />
+    <sessionIdentifier sourceID="urn:tracklms:materialType" identifier="Challenge" />
+    <sessionIdentifier sourceID="urn:tracklms:MaterialVersionNumber" identifier="1.0" />
+    <sessionIdentifier sourceID="urn:tracklms:resultId" identifier="98765" />
+  </context>
+  <testResult identifier="1001" datestamp="2026-01-01T09:30:00+09:00">
+    <responseVariable identifier="duration" cardinality="single" baseType="duration">
+      <candidateResponse>
+        <value>PT1800S</value>
+      </candidateResponse>
+    </responseVariable>
+    <responseVariable identifier="numAttempts" cardinality="single" baseType="integer">
+      <candidateResponse>
+        <value>1</value>
+      </candidateResponse>
+    </responseVariable>
+    <outcomeVariable identifier="completionStatus" cardinality="single" baseType="identifier">
+      <value>completed</value>
+    </outcomeVariable>
+    <outcomeVariable identifier="SCORE" cardinality="single" baseType="float">
+      <value>1</value>
+    </outcomeVariable>
+    <outcomeVariable identifier="TRACKLMS_QUESTION_COUNT" cardinality="single" baseType="integer">
+      <value>1</value>
+    </outcomeVariable>
+    <outcomeVariable identifier="TRACKLMS_CORRECT_COUNT" cardinality="single" baseType="integer">
+      <value>1</value>
+    </outcomeVariable>
+    <outcomeVariable identifier="TRACKLMS_TITLE" cardinality="single" baseType="string">
+      <value>Sample Test</value>
+    </outcomeVariable>
+    <outcomeVariable identifier="TRACKLMS_IS_OPTIONAL" cardinality="single" baseType="boolean">
+      <value>false</value>
+    </outcomeVariable>
+    <outcomeVariable identifier="TRACKLMS_TIME_LIMIT_MINUTES" cardinality="single" baseType="integer">
+      <value>60</value>
+    </outcomeVariable>
+    <outcomeVariable identifier="TRACKLMS_START_AT" cardinality="single" baseType="string">
+      <value>2026-01-01T09:00:00+09:00</value>
+    </outcomeVariable>
+    <outcomeVariable identifier="TRACKLMS_END_AT" cardinality="single" baseType="string">
+      <value>2026-01-01T09:30:00+09:00</value>
+    </outcomeVariable>
+  </testResult>
+  <itemResult identifier="Q1" sequenceIndex="1" datestamp="2026-01-01T09:30:00+09:00" sessionStatus="final">
+    <responseVariable identifier="RESPONSE" cardinality="single" baseType="string">
+      <candidateResponse>
+        <value>console.log('hello');</value>
+      </candidateResponse>
+    </responseVariable>
+    <outcomeVariable identifier="SCORE" cardinality="single" baseType="float">
+      <value>1</value>
+    </outcomeVariable>
+    <outcomeVariable identifier="TRACKLMS_ITEM_TITLE" cardinality="single" baseType="string">
+      <value>descriptive-question-1</value>
+    </outcomeVariable>
+  </itemResult>
+</assessmentResult>
