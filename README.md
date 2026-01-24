@@ -4,7 +4,7 @@ Convert Track LMS exports into QTI 3.0 Results Reporting artifacts.
 
 ## Status
 
-Work in progress (project scaffolding only).
+Initial converter implementation is available (library function only).
 
 ## Specs
 
@@ -36,3 +36,22 @@ node agent-rules-tools/tools/compose-agents.cjs
 ```sh
 python -m unittest discover -s tests
 ```
+
+## Usage
+
+```python
+from pathlib import Path
+
+from tracklms_to_qti_results import convert_csv_text_to_qti_results
+
+csv_text = Path("tracklms-export.csv").read_text(encoding="utf-8")
+results = convert_csv_text_to_qti_results(csv_text, timezone="Asia/Tokyo")
+
+for result in results:
+    output_path = Path(f"assessmentResult-{result.result_id}.xml")
+    output_path.write_text(result.xml, encoding="utf-8")
+```
+
+Notes:
+- One XML document is produced per input row (resultId).
+- The timezone parameter applies to startAt/endAt conversion.
