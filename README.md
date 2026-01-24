@@ -8,17 +8,17 @@ Work in progress (project scaffolding only).
 
 ## Specs
 
-- Input spec: `docs/input-spec.md`
-- Output spec: `docs/output-spec.md`
+- Input spec: [docs/input-spec.md](docs/input-spec.md)
+- Output spec: [docs/output-spec.md](docs/output-spec.md)
 
 ## Agent rules (AGENTS.md)
 
 This repository uses composed agent rules.
 
 - Source modules live in:
-  - `agent-rules/` (git submodule)
-  - `agent-rules-local/` (project-specific additions)
-- The ruleset is defined in `agent-ruleset.json`.
+  - [agent-rules/](agent-rules/) (git submodule)
+  - [agent-rules-local/](agent-rules-local/) (project-specific additions)
+- The ruleset is defined in [agent-ruleset.json](agent-ruleset.json).
 - Generate/update `AGENTS.md` from the project root:
 
 ```sh
