@@ -59,7 +59,12 @@ Notes:
 ## CLI
 
 ```sh
-python run_cli.py tracklms-export.csv --timezone Asia/Tokyo
+python run_cli.py <input.csv|-> \
+  [--timezone Asia/Tokyo] \
+  [--out-dir <output_dir>] \
+  [--item <item.qti.xml> ...] \
+  [--items-dir <items_dir>] \
+  [--item-map <item_map.csv>]
 ```
 
 Notes:
