@@ -62,9 +62,7 @@ Notes:
 python run_cli.py <input.csv|-> \
   [--timezone Asia/Tokyo] \
   [--out-dir <output_dir>] \
-  [--item <item.qti.xml> ...] \
-  [--items-dir <items_dir>] \
-  [--item-map <item_map.csv>]
+  [--assessment-test <assessment-test.qti.xml>]
 ```
 
 Notes:
@@ -73,16 +71,7 @@ Notes:
 - Use `-` instead of a file path to read CSV data from stdin.
 - If `--out-dir` is omitted, outputs go to `<input_dir>/qti-results` (or `./qti-results` when reading stdin).
 - Output files are written as `assessmentResult-<resultId>.xml`.
-- Use `--item <path>` (repeatable) or `--items-dir <dir>` to include rubric-based scoring results.
+- Use `--assessment-test <path>` to include rubric-based scoring results.
   - Descriptive items set all rubric criteria to false.
   - Choice and fill-in-the-blank items set all criteria to true when q{n}/score is non-zero.
-  - `--item-map <csv>` is required when items are provided; it maps itemResult identifiers to item identifiers.
-  - QTI item identifiers are derived from item file names (without extension).
-
-Item mapping CSV format:
-
-```csv
-resultItemIdentifier,itemIdentifier
-Q1,item-001
-Q2,item-002
-```
+  - itemResult identifiers follow the assessment test item order.

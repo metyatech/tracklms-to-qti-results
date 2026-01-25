@@ -5,7 +5,7 @@
 - One output document is produced per input row (resultId).
 - Standard QTI variables are used where available. Fields without a standard equivalent
   are emitted as custom identifiers prefixed with TRACKLMS_.
-- Optional rubric-based scoring results are emitted when QTI item sources are provided.
+- Optional rubric-based scoring results are emitted when a QTI assessment test is provided.
 
 ## Namespaces
 - Default namespace: http://www.imsglobal.org/xsd/imsqti_result_v3p0
@@ -50,8 +50,8 @@ Attributes:
 An itemResult is emitted for each question column group (q{n}/...).
 
 Attributes:
-- identifier: Q{n}
-- sequenceIndex: n
+- identifier: Q{n} (or assessment test item identifier when provided)
+- sequenceIndex: n (or assessment test order index when provided)
 - datestamp: attempt end time (endAt) in ISO 8601.
 - sessionStatus: final
 
@@ -134,7 +134,7 @@ Base type mapping:
 ### Question-level mapping (q{n})
 For each question index n (starting at 1), emit an itemResult with:
 
-- identifier: Q{n}
+- identifier: Q{n} (or assessment test item identifier when provided)
 - responseVariable identifier="RESPONSE"
 - outcomeVariable identifier="SCORE" for q{n}/score
 - outcomeVariable identifier="TRACKLMS_ITEM_TITLE" for q{n}/title
@@ -166,9 +166,10 @@ Question type is determined by the q{n}/correct and q{n}/answer fields:
 - candidateResponse: values from q{n}/answer split by ';' in order
 
 ## Optional rubric-based scoring results
-When QTI item sources are provided, the converter emits rubric outcomes and
+When a QTI assessment test is provided, the converter emits rubric outcomes and
 recalculates item/test scores based on the rubric format
-(`qti-rubric-block view="scorer"` with `[<points>] <criterion>` lines).
+(`qti-rubric-block view="scorer"` with `[<points>] <criterion>` lines). Item
+files are resolved from the assessment test item references.
 
 ### Rubric outcome variables
 For each rubric criterion, an outcome variable is added under the matching
@@ -179,16 +180,8 @@ itemResult:
 - value: true/false
 
 Item matching:
-- QTI item identifiers are derived from item file names (without extension).
-- A mapping CSV must be provided to map itemResult identifiers (Q{n}) to item identifiers.
-
-Mapping CSV format:
-
-```
-resultItemIdentifier,itemIdentifier
-Q1,item-001
-Q2,item-002
-```
+- The assessment test item reference order defines the itemResult identifiers.
+- If no assessment test is provided, itemResult identifiers remain Q{n}.
 
 ### Criteria evaluation rules (without scoring JSON)
 - Descriptive: always false for all rubric criteria.

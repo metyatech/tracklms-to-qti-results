@@ -29,10 +29,6 @@ def _load_item_sources(*filenames: str) -> list[str]:
     ]
 
 
-def _item_map(**kwargs: str) -> dict[str, str]:
-    return dict(kwargs)
-
-
 def _fixture_header() -> list[str]:
     fixture_text = _load_fixture_text("descriptive.csv")
     with io.StringIO(fixture_text) as handle:
@@ -100,16 +96,26 @@ def _find_outcome_value(parent: ET.Element, identifier: str) -> str | None:
 class ScoringUpdateTest(unittest.TestCase):
     def test_scoring_updates_descriptive_and_choice(self) -> None:
         csv_text = _build_csv_text({})
-        item_sources = _load_item_sources("Q1.qti.xml", "Q2.qti.xml")
+        item_sources = _load_item_sources(
+            "item-001.qti.xml",
+            "item-002.qti.xml",
+            "item-003.qti.xml",
+            "item-004.qti.xml",
+        )
         results = convert_csv_text_to_qti_results(
             csv_text,
             item_source_xmls=item_sources,
-            item_identifier_map=_item_map(Q1="Q1", Q2="Q2"),
+            assessment_test_item_identifiers=[
+                "item-001",
+                "item-002",
+                "item-003",
+                "item-004",
+            ],
         )
 
         root = ET.fromstring(results[0].xml)
-        q1 = _find_item_result(root, "Q1")
-        q2 = _find_item_result(root, "Q2")
+        q1 = _find_item_result(root, "item-001")
+        q2 = _find_item_result(root, "item-002")
         self.assertIsNotNone(q1)
         self.assertIsNotNone(q2)
 
@@ -140,15 +146,25 @@ class ScoringUpdateTest(unittest.TestCase):
                 "correctCount": "0",
             }
         )
-        item_sources = _load_item_sources("Q1.qti.xml")
+        item_sources = _load_item_sources(
+            "item-001.qti.xml",
+            "item-002.qti.xml",
+            "item-003.qti.xml",
+            "item-004.qti.xml",
+        )
         results = convert_csv_text_to_qti_results(
             csv_text,
             item_source_xmls=item_sources,
-            item_identifier_map=_item_map(Q1="Q1"),
+            assessment_test_item_identifiers=[
+                "item-001",
+                "item-002",
+                "item-003",
+                "item-004",
+            ],
         )
 
         root = ET.fromstring(results[0].xml)
-        q1 = _find_item_result(root, "Q1")
+        q1 = _find_item_result(root, "item-001")
         self.assertIsNotNone(q1)
         self.assertEqual(_find_outcome_value(q1, "RUBRIC_1_MET"), "false")
         self.assertEqual(_find_outcome_value(q1, "RUBRIC_2_MET"), "false")
@@ -158,32 +174,26 @@ class ScoringUpdateTest(unittest.TestCase):
         self.assertIsNotNone(test_result)
         self.assertEqual(_find_outcome_value(test_result, "SCORE"), "0")
 
-    def test_scoring_requires_item_mapping(self) -> None:
+    def test_scoring_requires_assessment_test_identifiers(self) -> None:
         csv_text = _build_csv_text({})
-        item_sources = _load_item_sources("Q1.qti.xml")
+        item_sources = _load_item_sources("item-001.qti.xml")
 
         with self.assertRaisesRegex(
-            ConversionError, "Item mapping is required when item sources are provided"
+            ConversionError,
+            "Assessment test item identifiers are required when item sources are provided",
         ):
             convert_csv_text_to_qti_results(
                 csv_text, item_source_xmls=item_sources
             )
 
-    def test_scoring_uses_item_mapping(self) -> None:
+    def test_scoring_requires_matching_item_count(self) -> None:
         csv_text = _build_csv_text({})
-        item_sources = _load_item_sources("item-001.qti.xml", "item-002.qti.xml")
-        results = convert_csv_text_to_qti_results(
-            csv_text,
-            item_source_xmls=item_sources,
-            item_identifier_map=_item_map(Q1="item-001", Q2="item-002"),
-        )
-
-        root = ET.fromstring(results[0].xml)
-        q1 = _find_item_result(root, "Q1")
-        q2 = _find_item_result(root, "Q2")
-        self.assertIsNotNone(q1)
-        self.assertIsNotNone(q2)
-        self.assertEqual(_find_outcome_value(q1, "RUBRIC_1_MET"), "false")
-        self.assertEqual(_find_outcome_value(q1, "RUBRIC_2_MET"), "false")
-        self.assertEqual(_find_outcome_value(q2, "RUBRIC_1_MET"), "true")
-        self.assertEqual(_find_outcome_value(q2, "RUBRIC_2_MET"), "true")
+        item_sources = _load_item_sources("item-001.qti.xml")
+        with self.assertRaisesRegex(
+            ConversionError, "Assessment test item count does not match question count"
+        ):
+            convert_csv_text_to_qti_results(
+                csv_text,
+                item_source_xmls=item_sources,
+                assessment_test_item_identifiers=["item-001"],
+            )

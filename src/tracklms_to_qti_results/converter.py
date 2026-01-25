@@ -46,7 +46,6 @@ ET.register_namespace("", QTI_NS)
 ET.register_namespace("xsi", XSI_NS)
 
 QUESTION_PATTERN = re.compile(r"^q(\d+)/(title|correct|answer|score)$")
-ITEM_RESULT_PATTERN = re.compile(r"^Q(\d+)$")
 PLACEHOLDER_PATTERN = re.compile(r"\$\{([^}]+)\}")
 RUBRIC_LINE_PATTERN = re.compile(r"^\s*\[([+-]?\d+(?:\.\d+)?)\]\s*(.+?)\s*$")
 
@@ -89,7 +88,7 @@ def convert_csv_text_to_qti_results(
     *,
     timezone: str = "Asia/Tokyo",
     item_source_xmls: Iterable[str] | None = None,
-    item_identifier_map: dict[str, str] | None = None,
+    assessment_test_item_identifiers: list[str] | None = None,
 ) -> list[QtiResultDocument]:
     """Convert Track LMS CSV content into QTI Results Reporting XML documents."""
     if not csv_text or not csv_text.strip():
@@ -97,7 +96,9 @@ def convert_csv_text_to_qti_results(
 
     tzinfo = _load_timezone(timezone)
     item_rubrics = _parse_item_rubrics(item_source_xmls)
-    item_mapping = _validate_item_mapping(item_identifier_map, item_rubrics)
+    item_identifiers = _validate_item_identifiers(
+        assessment_test_item_identifiers, item_rubrics
+    )
 
     with io.StringIO(csv_text) as handle:
         reader = csv.DictReader(handle)
@@ -108,6 +109,10 @@ def convert_csv_text_to_qti_results(
         _ensure_required_headers(fieldnames)
 
         question_indices = _collect_question_indices(fieldnames)
+        if item_identifiers is not None and len(item_identifiers) != len(question_indices):
+            raise ConversionError(
+                "Assessment test item count does not match question count."
+            )
         results: list[QtiResultDocument] = []
 
         for row in reader:
@@ -129,10 +134,14 @@ def convert_csv_text_to_qti_results(
                 end_at=end_at,
                 start_at=start_at,
                 question_indices=question_indices,
+                item_identifiers=item_identifiers,
             )
             if item_rubrics is not None:
+                identifier_to_question = _build_identifier_to_question_map(
+                    question_indices, item_identifiers
+                )
                 _apply_rubric_scoring(
-                    root, normalized_row, item_rubrics, item_mapping
+                    root, normalized_row, item_rubrics, identifier_to_question
                 )
             xml = _serialize_xml(root)
             results.append(QtiResultDocument(result_id=result_id, xml=xml))
@@ -192,13 +201,20 @@ def _build_assessment_result(
     end_at: str,
     start_at: str | None,
     question_indices: list[int],
+    item_identifiers: list[str] | None = None,
 ) -> ET.Element:
     root = ET.Element(_qti("assessmentResult"))
     root.set(f"{{{XSI_NS}}}schemaLocation", SCHEMA_LOCATION)
 
     _append_context(root, row)
     _append_test_result(root, row, end_at=end_at, start_at=start_at)
-    _append_item_results(root, row, end_at=end_at, question_indices=question_indices)
+    _append_item_results(
+        root,
+        row,
+        end_at=end_at,
+        question_indices=question_indices,
+        item_identifiers=item_identifiers,
+    )
 
     return root
 
@@ -322,8 +338,9 @@ def _append_item_results(
     *,
     end_at: str,
     question_indices: list[int],
+    item_identifiers: list[str] | None = None,
 ) -> None:
-    for index in question_indices:
+    for position, index in enumerate(question_indices):
         title = row.get(f"q{index}/title")
         correct = row.get(f"q{index}/correct")
         answer = row.get(f"q{index}/answer")
@@ -332,12 +349,17 @@ def _append_item_results(
         if not any([title, correct, answer, score]):
             continue
 
+        item_identifier = (
+            item_identifiers[position] if item_identifiers is not None else f"Q{index}"
+        )
+        sequence_index = str(position + 1) if item_identifiers is not None else str(index)
+
         item_result = ET.SubElement(
             parent,
             _qti("itemResult"),
             {
-                "identifier": f"Q{index}",
-                "sequenceIndex": str(index),
+                "identifier": item_identifier,
+                "sequenceIndex": sequence_index,
                 "datestamp": end_at,
                 "sessionStatus": "final",
             },
@@ -393,7 +415,7 @@ def _apply_rubric_scoring(
     root: ET.Element,
     row: dict[str, str | None],
     item_rubrics: dict[str, Rubric],
-    item_identifier_map: dict[str, str],
+    identifier_to_question: dict[str, int],
 ) -> None:
     test_result = root.find(_qti("testResult"))
     if test_result is None:
@@ -410,15 +432,13 @@ def _apply_rubric_scoring(
         if not identifier:
             raise ConversionError("itemResult missing identifier for scoring update.")
 
-        mapped_identifier = item_identifier_map.get(identifier)
-        if not mapped_identifier:
-            raise ConversionError(f"Missing item mapping for result item: {identifier}")
-
-        rubric = item_rubrics.get(mapped_identifier)
+        rubric = item_rubrics.get(identifier)
         if rubric is None:
-            raise ConversionError(f"Scoring source not found for item: {mapped_identifier}")
+            raise ConversionError(f"Scoring source not found for item: {identifier}")
 
-        question_index = _parse_question_index(identifier)
+        question_index = identifier_to_question.get(identifier)
+        if question_index is None:
+            raise ConversionError(f"Missing question mapping for item: {identifier}")
         score_value = row.get(f"q{question_index}/score")
         correct = row.get(f"q{question_index}/correct")
         answer = row.get(f"q{question_index}/answer")
@@ -656,30 +676,29 @@ def _parse_item_rubrics(
     return rubrics
 
 
-def _validate_item_mapping(
-    item_identifier_map: dict[str, str] | None, item_rubrics: dict[str, Rubric] | None
-) -> dict[str, str] | None:
+def _validate_item_identifiers(
+    assessment_test_item_identifiers: list[str] | None,
+    item_rubrics: dict[str, Rubric] | None,
+) -> list[str] | None:
     if item_rubrics is None:
-        if item_identifier_map:
-            raise ConversionError("Item mapping provided without item sources.")
-        return None
+        return assessment_test_item_identifiers
 
-    if not item_identifier_map:
-        raise ConversionError("Item mapping is required when item sources are provided.")
+    if not assessment_test_item_identifiers:
+        raise ConversionError(
+            "Assessment test item identifiers are required when item sources are provided."
+        )
 
-    item_ids = list(item_identifier_map.values())
-    if any(not isinstance(key, str) or not key for key in item_identifier_map.keys()):
-        raise ConversionError("Item mapping contains an empty result item identifier.")
-    if any(not isinstance(value, str) or not value for value in item_ids):
-        raise ConversionError("Item mapping contains an empty item identifier.")
-    if len(set(item_ids)) != len(item_ids):
-        raise ConversionError("Item mapping must be one-to-one.")
+    if any(not isinstance(value, str) or not value for value in assessment_test_item_identifiers):
+        raise ConversionError("Assessment test identifiers must be non-empty strings.")
 
-    for item_id in item_ids:
+    if len(set(assessment_test_item_identifiers)) != len(assessment_test_item_identifiers):
+        raise ConversionError("Assessment test item identifiers must be unique.")
+
+    for item_id in assessment_test_item_identifiers:
         if item_id not in item_rubrics:
-            raise ConversionError(f"Mapped item identifier not found: {item_id}")
+            raise ConversionError(f"Assessment test item not found in sources: {item_id}")
 
-    return item_identifier_map
+    return assessment_test_item_identifiers
 
 
 def _parse_item_source_xml(xml: str) -> ET.Element:
@@ -760,13 +779,6 @@ def _extract_rubric(root: ET.Element, identifier: str) -> Rubric:
     return Rubric(criteria=criteria, scale_digits=scale_digits)
 
 
-def _parse_question_index(identifier: str) -> int:
-    match = ITEM_RESULT_PATTERN.match(identifier)
-    if not match:
-        raise ConversionError(f"Unsupported itemResult identifier: {identifier}")
-    return int(match.group(1))
-
-
 def _criteria_all_met(
     question_type: str, score_value: str | None, question_index: int
 ) -> bool:
@@ -813,3 +825,14 @@ def _format_scaled(value: int, scale_digits: int) -> str:
     raw = f"{whole}.{frac}"
     trimmed = re.sub(r"\.?0+$", "", raw)
     return f"{sign}{trimmed}"
+
+
+def _build_identifier_to_question_map(
+    question_indices: list[int], item_identifiers: list[str] | None
+) -> dict[str, int]:
+    if item_identifiers is None:
+        return {f"Q{index}": index for index in question_indices}
+    return {
+        identifier: question_indices[position]
+        for position, identifier in enumerate(item_identifiers)
+    }

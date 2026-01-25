@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import argparse
-import csv
-import io
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from .converter import ConversionError, convert_csv_text_to_qti_results
+
+ITEM_NS = "http://www.imsglobal.org/xsd/imsqti_v3p0"
 
 DEFAULT_OUT_DIRNAME = "qti-results"
 
@@ -35,38 +36,23 @@ def main(argv: list[str] | None = None) -> int:
         help="Timezone for timestamps (default: Asia/Tokyo).",
     )
     parser.add_argument(
-        "--item",
-        action="append",
-        default=[],
-        help=(
-            "Path to a QTI item XML file used for rubric scoring (repeatable). "
-            "Requires --item-map."
-        ),
-    )
-    parser.add_argument(
-        "--items-dir",
+        "--assessment-test",
         default=None,
-        help="Directory containing QTI item XML files for rubric scoring (requires --item-map).",
-    )
-    parser.add_argument(
-        "--item-map",
-        default=None,
-        help="CSV mapping file for result item identifiers to item identifiers.",
+        help="Path to a QTI assessment test XML file for rubric-based scoring.",
     )
 
     args = parser.parse_args(argv)
 
     try:
         csv_text = _read_input(args.input)
-        item_sources = _collect_item_sources(args.item, args.items_dir)
-        item_mapping = _load_item_mapping(args.item_map)
-        if item_sources is None and item_mapping is not None:
-            raise ConversionError("Item mapping provided without item sources.")
+        assessment_test = _load_assessment_test(args.assessment_test)
+        item_sources = assessment_test.item_sources if assessment_test else None
+        item_identifiers = assessment_test.item_identifiers if assessment_test else None
         results = convert_csv_text_to_qti_results(
             csv_text,
             timezone=args.timezone,
             item_source_xmls=item_sources,
-            item_identifier_map=item_mapping,
+            assessment_test_item_identifiers=item_identifiers,
         )
         out_dir = _resolve_out_dir(args.input, args.out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -97,86 +83,96 @@ def _resolve_out_dir(input_value: str, out_dir: str | None) -> Path:
     return Path(input_value).resolve().parent / DEFAULT_OUT_DIRNAME
 
 
-def _collect_item_sources(
-    item_paths: list[str], items_dir: str | None
-) -> list[str] | None:
-    if not item_paths and not items_dir:
+def _load_assessment_test(
+    assessment_test_path: str | None,
+) -> "_AssessmentTest | None":
+    if assessment_test_path is None:
         return None
-
-    sources: list[Path] = []
-    if items_dir:
-        directory = Path(items_dir)
-        if not directory.is_dir():
-            raise ConversionError(f"Items directory not found: {items_dir}")
-        sources.extend(sorted(directory.glob("*.xml")))
-
-    sources.extend(Path(path) for path in item_paths)
-
-    if not sources:
-        raise ConversionError("No QTI item sources were provided.")
-
-    return [path.read_text(encoding="utf-8") for path in sources]
-
-
-def _load_item_mapping(item_map_path: str | None) -> dict[str, str] | None:
-    if item_map_path is None:
-        return None
-    path = Path(item_map_path)
+    path = Path(assessment_test_path)
     if not path.is_file():
-        raise ConversionError(f"Item mapping file not found: {item_map_path}")
-    text = path.read_text(encoding="utf-8")
-    return _parse_item_mapping_csv_text(text)
-
-
-def _parse_item_mapping_csv_text(text: str) -> dict[str, str]:
-    if not text.strip():
-        raise ConversionError("Item mapping CSV is empty.")
-
-    reader = csv.reader(io.StringIO(text))
-    header = next(reader, None)
-    if header is None:
-        raise ConversionError("Item mapping CSV header is missing.")
-
-    normalized_header = [cell.strip() for cell in header]
-    if normalized_header:
-        normalized_header[0] = normalized_header[0].lstrip("\ufeff")
-
-    if normalized_header != ["resultItemIdentifier", "itemIdentifier"]:
         raise ConversionError(
-            "Item mapping CSV header must be: resultItemIdentifier,itemIdentifier"
+            f"Assessment test file not found: {assessment_test_path}"
+        )
+    text = path.read_text(encoding="utf-8")
+    return _parse_assessment_test(text, base_dir=path.parent)
+
+
+class _AssessmentTest:
+    def __init__(self, item_identifiers: list[str], item_sources: list[str]) -> None:
+        self.item_identifiers = item_identifiers
+        self.item_sources = item_sources
+
+
+def _parse_assessment_test(text: str, *, base_dir: Path) -> _AssessmentTest:
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError as exc:
+        raise ConversionError(f"Failed to parse assessment test: {exc}") from exc
+
+    namespace = _extract_namespace(root.tag)
+    if namespace and namespace != ITEM_NS:
+        raise ConversionError(f"Unexpected assessment test namespace: {namespace}")
+
+    if _strip_namespace(root.tag) != "qti-assessment-test":
+        raise ConversionError("Root element must be qti-assessment-test.")
+
+    item_refs = _find_item_refs(root, use_namespace=namespace == ITEM_NS)
+    if not item_refs:
+        raise ConversionError("No assessment item references found in test.")
+
+    item_identifiers: list[str] = []
+    item_sources: list[str] = []
+
+    for item_ref in item_refs:
+        identifier = item_ref.attrib.get("identifier")
+        href = item_ref.attrib.get("href")
+        if not identifier or not href:
+            raise ConversionError("Assessment item reference must include identifier and href.")
+        item_path = (base_dir / href).resolve()
+        if not item_path.is_file():
+            raise ConversionError(f"Assessment item not found: {href}")
+        item_xml = item_path.read_text(encoding="utf-8")
+        _ensure_item_identifier_matches(item_xml, identifier)
+        item_identifiers.append(identifier)
+        item_sources.append(item_xml)
+
+    return _AssessmentTest(item_identifiers=item_identifiers, item_sources=item_sources)
+
+
+def _find_item_refs(root: ET.Element, *, use_namespace: bool) -> list[ET.Element]:
+    tag = _qti_item("qti-assessment-item-ref") if use_namespace else "qti-assessment-item-ref"
+    return list(root.iter(tag))
+
+
+def _ensure_item_identifier_matches(xml: str, expected_identifier: str) -> None:
+    try:
+        root = ET.fromstring(xml)
+    except ET.ParseError as exc:
+        raise ConversionError(f"Failed to parse assessment item: {exc}") from exc
+    namespace = _extract_namespace(root.tag)
+    if namespace and namespace != ITEM_NS:
+        raise ConversionError(f"Unexpected item namespace: {namespace}")
+    if _strip_namespace(root.tag) != "qti-assessment-item":
+        raise ConversionError("Root element must be qti-assessment-item.")
+    actual_identifier = root.attrib.get("identifier")
+    if actual_identifier != expected_identifier:
+        raise ConversionError(
+            f"Assessment item identifier mismatch: {expected_identifier}"
         )
 
-    mapping: dict[str, str] = {}
-    item_ids: set[str] = set()
 
-    for row_index, row in enumerate(reader, start=2):
-        if not row:
-            raise ConversionError(f"Item mapping row is empty at line {row_index}.")
-        if len(row) < 2:
-            raise ConversionError(
-                f"Item mapping row is missing fields at line {row_index}."
-            )
-        if len(row) > 2 and any(cell.strip() for cell in row[2:]):
-            raise ConversionError(
-                f"Item mapping row has extra columns at line {row_index}."
-            )
-        result_id = row[0].strip()
-        item_id = row[1].strip()
-        if not result_id or not item_id:
-            raise ConversionError(
-                f"Item mapping row must define both identifiers at line {row_index}."
-            )
-        if result_id in mapping:
-            raise ConversionError(f"Duplicate result item identifier: {result_id}")
-        if item_id in item_ids:
-            raise ConversionError(f"Duplicate item identifier: {item_id}")
-        mapping[result_id] = item_id
-        item_ids.add(item_id)
+def _extract_namespace(tag: str) -> str | None:
+    if tag.startswith("{"):
+        return tag.split("}")[0][1:]
+    return None
 
-    if not mapping:
-        raise ConversionError("Item mapping CSV must contain at least one entry.")
 
-    return mapping
+def _strip_namespace(tag: str) -> str:
+    return tag.split("}", 1)[1] if tag.startswith("{") else tag
+
+
+def _qti_item(tag: str) -> str:
+    return f"{{{ITEM_NS}}}{tag}"
 
 
 if __name__ == "__main__":

@@ -221,8 +221,7 @@ class CliTest(unittest.TestCase):
 
     def test_cli_applies_rubric_scoring_with_mapping(self) -> None:
         csv_path = FIXTURE_DIR / "descriptive.csv"
-        item_map_path = FIXTURE_DIR / "item-map.csv"
-        items_dir = FIXTURE_DIR / "items"
+        assessment_test_path = FIXTURE_DIR / "assessment-test.qti.xml"
         temp_dir = _temp_dir()
         try:
             out_dir = Path(temp_dir)
@@ -231,17 +230,15 @@ class CliTest(unittest.TestCase):
                     str(csv_path),
                     "--out-dir",
                     str(out_dir),
-                    "--items-dir",
-                    str(items_dir),
-                    "--item-map",
-                    str(item_map_path),
+                    "--assessment-test",
+                    str(assessment_test_path),
                 ]
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
             output_file = out_dir / "assessmentResult-98765.xml"
             root = ET.fromstring(output_file.read_text(encoding="utf-8"))
-            q1 = root.find("qti:itemResult[@identifier='Q1']", NS)
+            q1 = root.find("qti:itemResult[@identifier='item-001']", NS)
             self.assertIsNotNone(q1)
             rubric_1 = _find_outcome_value(q1, "RUBRIC_1_MET")
             rubric_2 = _find_outcome_value(q1, "RUBRIC_2_MET")

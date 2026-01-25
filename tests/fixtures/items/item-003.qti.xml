@@ -1,4 +1,4 @@
-<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="Q1" title="Q1">
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-003" title="item-003">
   <qti-item-body>
     <qti-rubric-block view="scorer">
       <qti-p>[2] Criterion A</qti-p>
