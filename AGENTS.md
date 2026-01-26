@@ -179,6 +179,7 @@ Write final responses to the user in Japanese unless the user requests otherwise
 - Populate public package metadata (name, description, repository, issues, homepage, engines) for published artifacts.
 - Validate executable entrypoints and any required shebangs so published commands run after install.
 - Run dependency security checks appropriate to the ecosystem before release and address critical issues.
+- Always run dependency security checks before release and report results in the final response.
 - When creating or updating LICENSE files, set the copyright holder name to "metyatech".
 
 # 品質（テスト・検証・エラーハンドリング）

@@ -54,6 +54,12 @@ python -m unittest discover -s tests
 python -m ruff check .
 ```
 
+### Security audit
+
+```sh
+python -m pip_audit -r requirements-dev.txt
+```
+
 ## Usage
 
 ```python
@@ -116,5 +122,6 @@ Breaking changes include (but are not limited to):
 
 1. Update `CHANGELOG.md` with a new version section and migration notes for breaking changes.
 2. Update `src/tracklms_to_qti_results/version.py`.
-3. Tag the release (example: `v1.2.3`) and push the tag.
-4. Create a GitHub Release with notes based on `CHANGELOG.md`.
+3. Run `python -m pip_audit -r requirements-dev.txt` and address critical issues.
+4. Tag the release (example: `v1.2.3`) and push the tag.
+5. Create a GitHub Release with notes based on `CHANGELOG.md`.
