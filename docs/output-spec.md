@@ -73,6 +73,12 @@ Base type mapping:
 - mapping from Track LMS status:
   - Completed -> completed
   - DeadlineExpired -> incomplete
+  - Other values -> unknown
+
+Known Track LMS status values observed in inputs:
+- Completed
+- DeadlineExpired
+- InProgress
 
 ### SCORE (outcomeVariable)
 - baseType: float

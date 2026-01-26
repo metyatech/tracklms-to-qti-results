@@ -70,6 +70,48 @@ def _build_csv_text(overrides: dict[str, str]) -> str:
     return output.getvalue()
 
 
+def _build_csv_texts(overrides_list: list[dict[str, str]]) -> str:
+    header = _fixture_header()
+    output = io.StringIO()
+    writer = csv.writer(output, lineterminator="\r\n")
+    writer.writerow(header)
+    for overrides in overrides_list:
+        base_row = {
+            "classId": "1",
+            "className": "Sample Class",
+            "traineeId": "2",
+            "account": "sample.user@example.com",
+            "traineeName": "Sample User",
+            "traineeKlassId": "3",
+            "matrerialId": "4",
+            "materialTitle": "Sample Test",
+            "materialType": "Challenge",
+            "MaterialVersionNumber": "1.0",
+            "materialTimeLimitMinutes": "60",
+            "isOptional": "false",
+            "resultId": "200",
+            "status": "Completed",
+            "startAt": "2026/01/02 10:00:00",
+            "endAt": "2026/01/02 10:30:00",
+            "id": "999",
+            "title": "Sample Test",
+            "score": "1",
+            "questionCount": "1",
+            "correctCount": "1",
+            "timeSpentSeconds": "1800",
+            "restartCount": "0",
+            "q1/title": "descriptive-question-1",
+            "q1/correct": "",
+            "q1/answer": "console.log('hello');",
+            "q1/score": "1",
+        }
+        row = {name: "" for name in header}
+        row.update(base_row)
+        row.update(overrides)
+        writer.writerow([row[name] for name in header])
+    return output.getvalue()
+
+
 def _clean_text(value: str | None) -> str | None:
     if value is None:
         return None
@@ -234,6 +276,25 @@ class ConversionValidationTest(unittest.TestCase):
         csv_text = "classId,className\r\n1,Sample Class\r\n"
         with self.assertRaisesRegex(ConversionError, "account|header|column"):
             convert_csv_text_to_qti_results(csv_text)
+
+    def test_status_filter_excludes_non_matching_rows(self) -> None:
+        csv_text = _build_csv_texts(
+            [
+                {"resultId": "200", "status": "Completed"},
+                {"resultId": "201", "status": "InProgress"},
+            ]
+        )
+        results = convert_csv_text_to_qti_results(
+            csv_text, allowed_statuses={"Completed"}
+        )
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].result_id, "200")
+
+    def test_status_filter_rejects_empty_value(self) -> None:
+        csv_text = _build_csv_text({"resultId": "200"})
+        with self.assertRaisesRegex(ConversionError, "status filter"):
+            convert_csv_text_to_qti_results(csv_text, allowed_statuses={""})
 
 
 class ConversionMappingTest(unittest.TestCase):

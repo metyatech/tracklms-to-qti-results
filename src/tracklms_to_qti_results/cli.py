@@ -40,6 +40,15 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Path to a QTI assessment test XML file for rubric-based scoring.",
     )
+    parser.add_argument(
+        "--only-status",
+        action="append",
+        default=None,
+        help=(
+            "Only include rows with the specified status. "
+            "Repeat to allow multiple statuses."
+        ),
+    )
 
     args = parser.parse_args(argv)
 
@@ -53,6 +62,7 @@ def main(argv: list[str] | None = None) -> int:
             timezone=args.timezone,
             item_source_xmls=item_sources,
             assessment_test_item_identifiers=item_identifiers,
+            allowed_statuses=args.only_status,
         )
         out_dir = _resolve_out_dir(args.input, args.out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)

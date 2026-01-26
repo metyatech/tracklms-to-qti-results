@@ -55,6 +55,7 @@ for result in results:
 Notes:
 - One XML document is produced per input row (resultId).
 - The timezone parameter applies to startAt/endAt conversion.
+- Use allowed_statuses to include only specific Track LMS statuses.
 
 ## CLI
 
@@ -62,7 +63,8 @@ Notes:
 python run_cli.py <input.csv|-> \
   [--timezone Asia/Tokyo] \
   [--out-dir <output_dir>] \
-  [--assessment-test <assessment-test.qti.xml>]
+  [--assessment-test <assessment-test.qti.xml>] \
+  [--only-status <status>]
 ```
 
 Notes:
@@ -75,3 +77,4 @@ Notes:
   - Descriptive items set all rubric criteria to false.
   - Choice and fill-in-the-blank items set all criteria to true when q{n}/score is non-zero.
   - itemResult identifiers follow the assessment test item order.
+- Use `--only-status` multiple times to include multiple statuses (example: `--only-status Completed --only-status DeadlineExpired`).

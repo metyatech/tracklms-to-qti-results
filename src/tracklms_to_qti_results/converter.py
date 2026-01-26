@@ -89,6 +89,7 @@ def convert_csv_text_to_qti_results(
     timezone: str = "Asia/Tokyo",
     item_source_xmls: Iterable[str] | None = None,
     assessment_test_item_identifiers: list[str] | None = None,
+    allowed_statuses: Iterable[str] | None = None,
 ) -> list[QtiResultDocument]:
     """Convert Track LMS CSV content into QTI Results Reporting XML documents."""
     if not csv_text or not csv_text.strip():
@@ -99,6 +100,7 @@ def convert_csv_text_to_qti_results(
     item_identifiers = _validate_item_identifiers(
         assessment_test_item_identifiers, item_rubrics
     )
+    status_filter = _normalize_status_filter(allowed_statuses)
 
     with io.StringIO(csv_text) as handle:
         reader = csv.DictReader(handle)
@@ -117,6 +119,12 @@ def convert_csv_text_to_qti_results(
 
         for row in reader:
             normalized_row = _normalize_row(row)
+            if status_filter is not None:
+                status_value = normalized_row.get("status")
+                if status_value is None:
+                    raise ConversionError("Missing required value: status")
+                if status_value not in status_filter:
+                    continue
             _ensure_required_row_fields(normalized_row)
             result_id = normalized_row["resultId"]
 
@@ -175,6 +183,22 @@ def _normalize_row(row: dict[str, str | None]) -> dict[str, str | None]:
         if key is None:
             continue
         normalized[key] = _clean_value(value)
+    return normalized
+
+
+def _normalize_status_filter(
+    allowed_statuses: Iterable[str] | None,
+) -> set[str] | None:
+    if allowed_statuses is None:
+        return None
+    normalized: set[str] = set()
+    for status in allowed_statuses:
+        cleaned = _clean_value(status)
+        if cleaned is None:
+            raise ConversionError("Invalid status filter value.")
+        normalized.add(cleaned)
+    if not normalized:
+        raise ConversionError("Invalid status filter value.")
     return normalized
 
 

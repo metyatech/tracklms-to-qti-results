@@ -27,7 +27,7 @@
 | materialTimeLimitMinutes | integer  | no       | Time limit in minutes (if configured).                                         |
 | isOptional               | boolean  | no       | Whether the material is optional. Values: true/false.                          |
 | resultId                 | integer  | yes      | Result identifier for this attempt.                                            |
-| status                   | string   | yes      | Result status.                                                                 |
+| status                   | string   | yes      | Result status (see Known status values below).                                 |
 | startAt                  | datetime | no       | Attempt start timestamp in Track LMS local time. Format: YYYY/MM/DD HH:MM:SS.  |
 | endAt                    | datetime | no       | Attempt end timestamp in Track LMS local time. Format: YYYY/MM/DD HH:MM:SS.    |
 
@@ -81,3 +81,11 @@ Each question is one of the following types:
 - Boolean values are represented as true/false.
 - Timestamps are provided without timezone. The conversion layer must apply a configured timezone
   when emitting ISO 8601 timestamps in the output.
+
+## Known status values
+Track LMS may emit additional status values beyond those listed here. The converter maps known
+values and treats unknown values as `unknown` for completionStatus.
+
+- Completed
+- DeadlineExpired
+- InProgress
