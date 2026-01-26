@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## Unreleased
 
+## 0.2.1 - 2026-01-27
+
 ### Added
 - Security audit step in CI and release checklist (pip-audit).
 - Python packaging configuration and publishing steps.
