@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "tracklms-to-qti-results CLI JSON output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mode", "outputTarget", "outputs"],
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": ["dry-run", "write"]
+    },
+    "outputTarget": {
+      "type": "string",
+      "description": "Output directory path or 'stdout'."
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["resultId", "path"],
+            "properties": {
+              "resultId": { "type": "string" },
+              "path": { "type": "string" }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["resultId", "target"],
+            "properties": {
+              "resultId": { "type": "string" },
+              "target": { "type": "string", "const": "stdout" }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -213,3 +213,18 @@ See the test case fixtures in [tests/fixtures/README.md](../tests/fixtures/READM
 ## Output file naming
 - One file per resultId.
 - File name: assessmentResult-<resultId>.xml
+
+## CLI JSON output
+When `--json` is supplied, the CLI emits a machine-readable summary to stdout.
+Schema: [docs/cli-output.schema.json](cli-output.schema.json).
+
+Example (dry run):
+```json
+{
+  "mode": "dry-run",
+  "outputTarget": "qti-results",
+  "outputs": [
+    { "resultId": "200", "path": "qti-results/assessmentResult-200.xml" }
+  ]
+}
+```

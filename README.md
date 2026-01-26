@@ -20,6 +20,7 @@ None.
 
 - Input spec: [docs/input-spec.md](docs/input-spec.md)
 - Output spec: [docs/output-spec.md](docs/output-spec.md)
+- CLI JSON schema: [docs/cli-output.schema.json](docs/cli-output.schema.json)
 
 ## Agent rules (AGENTS.md)
 
