@@ -4,7 +4,17 @@ Convert Track LMS exports into QTI 3.0 Results Reporting artifacts.
 
 ## Status
 
-Initial converter implementation is available (library function only).
+Converter and CLI are available.
+
+## Setup
+
+- Python 3.11+
+- Create and activate a virtual environment
+- Install dev tools: `python -m pip install -r requirements-dev.txt`
+
+## Environment variables
+
+None.
 
 ## Specs
 
@@ -37,6 +47,12 @@ node agent-rules-tools/tools/compose-agents.cjs
 python -m unittest discover -s tests
 ```
 
+### Lint
+
+```sh
+python -m ruff check .
+```
+
 ## Usage
 
 ```python
@@ -62,19 +78,42 @@ Notes:
 ```sh
 python run_cli.py <input.csv|-> \
   [--timezone Asia/Tokyo] \
-  [--out-dir <output_dir>] \
+  [--output <output_dir|->] \
   [--assessment-test <assessment-test.qti.xml>] \
-  [--only-status <status>]
+  [--only-status <status>] \
+  [--dry-run] \
+  [--json] \
+  [--yes]
 ```
 
 Notes:
 - Run from the repository root; `run_cli.py` bootstraps `src/` automatically.
 - If your environment allows, `python -m tracklms_to_qti_results ...` also works.
 - Use `-` instead of a file path to read CSV data from stdin.
-- If `--out-dir` is omitted, outputs go to `<input_dir>/qti-results` (or `./qti-results` when reading stdin).
+- If `--output`/`--out-dir` is omitted, outputs go to `<input_dir>/qti-results` (or `./qti-results` when reading stdin).
+- Use `--output -` to emit a single XML document to stdout.
+- Use `--dry-run` to preview planned outputs without writing files.
+- Use `--json` to emit a machine-readable summary to stdout.
+- Use `--yes`/`--force` to overwrite existing files without prompting.
 - Output files are written as `assessmentResult-<resultId>.xml`.
 - Use `--assessment-test <path>` to include rubric-based scoring results.
   - Descriptive items set all rubric criteria to false.
   - Choice and fill-in-the-blank items set all criteria to true when q{n}/score is non-zero.
   - itemResult identifiers follow the assessment test item order.
 - Use `--only-status` multiple times to include multiple statuses (example: `--only-status Completed --only-status DeadlineExpired`).
+
+## Versioning
+
+This project follows Semantic Versioning.
+
+Breaking changes include (but are not limited to):
+- Changes to CLI flags or defaults that alter outputs or behavior.
+- Changes to input/output formats or required columns.
+- Changes to public Python API signatures or return types.
+
+## Release
+
+1. Update `CHANGELOG.md` with a new version section and migration notes for breaking changes.
+2. Update `src/tracklms_to_qti_results/version.py`.
+3. Tag the release (example: `v1.2.3`) and push the tag.
+4. Create a GitHub Release with notes based on `CHANGELOG.md`.

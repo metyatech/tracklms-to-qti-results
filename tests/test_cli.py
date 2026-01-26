@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import csv
 import io
+import json
+import re
 import subprocess
 import sys
 import shutil
@@ -329,5 +331,108 @@ class CliTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((out_dir / "assessmentResult-200.xml").exists())
             self.assertFalse((out_dir / "assessmentResult-201.xml").exists())
+        finally:
+            _cleanup_temp_dir(Path(temp_dir))
+
+    def test_cli_version_flag_outputs_version(self) -> None:
+        result = _run_cli(["--version"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(re.search(r"\d+\.\d+\.\d+", result.stdout))
+
+    def test_cli_dry_run_with_json_outputs_plan(self) -> None:
+        csv_text = _build_csv_texts(
+            [
+                {"resultId": "200", "status": "Completed"},
+                {"resultId": "201", "status": "Completed"},
+            ]
+        )
+        temp_dir = _temp_dir()
+        try:
+            csv_path = Path(temp_dir) / "input.csv"
+            csv_path.write_text(csv_text, encoding="utf-8")
+            out_dir = Path(temp_dir) / "out"
+            result = _run_cli(
+                [
+                    str(csv_path),
+                    "--out-dir",
+                    str(out_dir),
+                    "--dry-run",
+                    "--json",
+                ]
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["mode"], "dry-run")
+            self.assertEqual(len(payload["outputs"]), 2)
+            self.assertFalse(out_dir.exists())
+        finally:
+            _cleanup_temp_dir(Path(temp_dir))
+
+    def test_cli_json_output_includes_written_files(self) -> None:
+        csv_text = _build_csv_texts(
+            [
+                {"resultId": "200", "status": "Completed"},
+                {"resultId": "201", "status": "Completed"},
+            ]
+        )
+        temp_dir = _temp_dir()
+        try:
+            csv_path = Path(temp_dir) / "input.csv"
+            csv_path.write_text(csv_text, encoding="utf-8")
+            out_dir = Path(temp_dir) / "out"
+            result = _run_cli(
+                [
+                    str(csv_path),
+                    "--out-dir",
+                    str(out_dir),
+                    "--json",
+                    "--yes",
+                ]
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["mode"], "write")
+            self.assertEqual(len(payload["outputs"]), 2)
+            self.assertTrue((out_dir / "assessmentResult-200.xml").exists())
+            self.assertTrue((out_dir / "assessmentResult-201.xml").exists())
+        finally:
+            _cleanup_temp_dir(Path(temp_dir))
+
+    def test_cli_stdout_output_writes_xml(self) -> None:
+        csv_text = _build_csv_text({"resultId": "200"})
+        temp_dir = _temp_dir()
+        try:
+            csv_path = Path(temp_dir) / "input.csv"
+            csv_path.write_text(csv_text, encoding="utf-8")
+            result = _run_cli([str(csv_path), "--output", "-"])
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("assessmentResult", result.stdout)
+        finally:
+            _cleanup_temp_dir(Path(temp_dir))
+
+    def test_cli_requires_yes_when_overwriting(self) -> None:
+        csv_text = _build_csv_text({"resultId": "200"})
+        temp_dir = _temp_dir()
+        try:
+            csv_path = Path(temp_dir) / "input.csv"
+            csv_path.write_text(csv_text, encoding="utf-8")
+            out_dir = Path(temp_dir) / "out"
+            out_dir.mkdir()
+            output_file = out_dir / "assessmentResult-200.xml"
+            output_file.write_text("old", encoding="utf-8")
+            result = _run_cli(
+                [
+                    str(csv_path),
+                    "--out-dir",
+                    str(out_dir),
+                ]
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("overwrite", result.stderr.lower())
+            self.assertEqual(output_file.read_text(encoding="utf-8"), "old")
         finally:
             _cleanup_temp_dir(Path(temp_dir))
