@@ -1,3 +1,39 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tracklms-to-qti-results"
+description = "Convert Track LMS exports into QTI 3.0 Results Reporting XML."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "metyatech" }]
+keywords = ["tracklms", "qti", "qti-results"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/metyatech/tracklms-to-qti-results"
+Repository = "https://github.com/metyatech/tracklms-to-qti-results"
+Issues = "https://github.com/metyatech/tracklms-to-qti-results/issues"
+
+[project.scripts]
+tracklms-to-qti-results = "tracklms_to_qti_results.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+version = { attr = "tracklms_to_qti_results.version.__version__" }
+
 [tool.ruff]
 target-version = "py311"
 line-length = 100

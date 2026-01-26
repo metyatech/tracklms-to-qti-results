@@ -123,5 +123,8 @@ Breaking changes include (but are not limited to):
 1. Update `CHANGELOG.md` with a new version section and migration notes for breaking changes.
 2. Update `src/tracklms_to_qti_results/version.py`.
 3. Run `python -m pip_audit -r requirements-dev.txt` and address critical issues.
-4. Tag the release (example: `v1.2.3`) and push the tag.
-5. Create a GitHub Release with notes based on `CHANGELOG.md`.
+4. Run `python -m build`.
+5. Run `python -m twine check dist/*`.
+6. Tag the release (example: `v1.2.3`) and push the tag.
+7. Create a GitHub Release with notes based on `CHANGELOG.md`.
+8. Publish to PyPI with `python -m twine upload dist/*`.

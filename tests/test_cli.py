@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
 import re
 import subprocess
 import sys
@@ -149,6 +150,27 @@ def _run_cli(
         text=True,
         capture_output=True,
         cwd=cwd or ROOT_DIR,
+    )
+
+
+def _run_module(
+    args: list[str],
+    *,
+    input_text: str | None = None,
+    cwd: Path | None = None,
+) -> subprocess.CompletedProcess[str]:
+    src_dir = ROOT_DIR / "src"
+    env = dict(**os.environ)
+    env["PYTHONPATH"] = f"{src_dir}{os.pathsep}{env.get('PYTHONPATH', '')}".rstrip(
+        os.pathsep
+    )
+    return subprocess.run(
+        [sys.executable, "-m", "tracklms_to_qti_results", *args],
+        input=input_text,
+        text=True,
+        capture_output=True,
+        cwd=cwd or ROOT_DIR,
+        env=env,
     )
 
 
@@ -336,6 +358,11 @@ class CliTest(unittest.TestCase):
 
     def test_cli_version_flag_outputs_version(self) -> None:
         result = _run_cli(["--version"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(re.search(r"\d+\.\d+\.\d+", result.stdout))
+
+    def test_module_entrypoint_version_flag_outputs_version(self) -> None:
+        result = _run_module(["--version"])
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(re.search(r"\d+\.\d+\.\d+", result.stdout))
 

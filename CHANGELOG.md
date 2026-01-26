@@ -8,6 +8,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Added
 - Security audit step in CI and release checklist (pip-audit).
+- Python packaging configuration and publishing steps.
+- Module entrypoint test for `python -m tracklms_to_qti_results`.
+
+### Changed
+- Packaging metadata now uses SPDX license expression.
 
 ## 0.2.0 - 2026-01-27
 
