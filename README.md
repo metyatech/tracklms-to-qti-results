@@ -128,3 +128,7 @@ Breaking changes include (but are not limited to):
 6. Tag the release (example: `v1.2.3`) and push the tag.
 7. Create a GitHub Release with notes based on `CHANGELOG.md`.
 8. Publish to PyPI with `python -m twine upload dist/*`.
+
+## Overview
+This repository contains the tracklms-to-qti-results project.
+
