@@ -13,6 +13,5 @@ if SRC_DIR.is_dir():
 
 from tracklms_to_qti_results.cli import main
 
-
 if __name__ == "__main__":
     raise SystemExit(main())

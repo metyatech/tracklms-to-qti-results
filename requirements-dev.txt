@@ -1,4 +1,6 @@
 ruff>=0.6.0
+mypy>=1.10.0
+types-setuptools
 pip-audit>=2.7.0
 build>=1.0.0
 twine>=5.0.0
