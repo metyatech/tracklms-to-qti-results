@@ -33,10 +33,10 @@ This repository uses composed agent rules.
 - Generate/update `AGENTS.md` from the project root:
 
 ```sh
-node agent-rules-tools/tools/compose-agents.cjs
+compose-agentsmd
 ```
 
-## Planned tech
+## Tech
 
 - Python + Pydantic
 
@@ -52,6 +52,12 @@ python -m unittest discover -s tests
 
 ```sh
 python -m ruff check .
+```
+
+### Type check
+
+```sh
+python -m mypy src
 ```
 
 ### Security audit
