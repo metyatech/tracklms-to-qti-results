@@ -1,22 +1,18 @@
-"""CSV to QTI 3.0 Results Reporting conversion."""
-
-from __future__ import annotations
-
 import csv
 import io
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
-from typing import cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-@dataclass(frozen=True)
-class QtiResultDocument:
+
+class QtiResultDocument(BaseModel):
     """Represents a single QTI Results Reporting XML document."""
 
+    model_config = ConfigDict(frozen=True)
     result_id: str
     xml: str
 
@@ -25,16 +21,48 @@ class ConversionError(ValueError):
     """Raised when input data is missing required fields or is invalid."""
 
 
-@dataclass(frozen=True)
-class RubricCriterion:
+class RubricCriterion(BaseModel):
+    model_config = ConfigDict(frozen=True)
     points: str
     text: str
 
 
-@dataclass(frozen=True)
-class Rubric:
+class Rubric(BaseModel):
+    model_config = ConfigDict(frozen=True)
     criteria: list[RubricCriterion]
     scale_digits: int
+
+
+class TrackLmsRow(BaseModel):
+    """Represents a single row from Track LMS export."""
+
+    model_config = ConfigDict(extra="allow")
+
+    class_id: str = Field(alias="classId")
+    class_name: str = Field(alias="className")
+    trainee_id: str = Field(alias="traineeId")
+    account: str
+    trainee_name: str = Field(alias="traineeName")
+    trainee_klass_id: str = Field(alias="traineeKlassId")
+    material_id: str = Field(alias="matrerialId")
+    material_title: str = Field(alias="materialTitle")
+    material_type: str = Field(alias="materialType")
+    material_version_number: str = Field(alias="MaterialVersionNumber")
+    result_id: str = Field(alias="resultId")
+    status: str
+    end_at: str = Field(alias="endAt")
+    test_id: str = Field(alias="id")
+
+    # Optional fields
+    start_at: str | None = Field(default=None, alias="startAt")
+    score: str | None = Field(default=None)
+    question_count: str | None = Field(default=None, alias="questionCount")
+    correct_count: str | None = Field(default=None, alias="correctCount")
+    time_spent_seconds: str | None = Field(default=None, alias="timeSpentSeconds")
+    restart_count: str | None = Field(default=None, alias="restartCount")
+    title: str | None = Field(default=None)
+    is_optional: str | None = Field(default=None, alias="isOptional")
+    material_time_limit_minutes: str | None = Field(default=None, alias="materialTimeLimitMinutes")
 
 
 QTI_NS = "http://www.imsglobal.org/xsd/imsqti_result_v3p0"
@@ -118,27 +146,23 @@ def convert_csv_text_to_qti_results(
         results: list[QtiResultDocument] = []
 
         for row in reader:
-            normalized_row = _normalize_row(row)
-            if status_filter is not None:
-                status_value = normalized_row.get("status")
-                if status_value is None:
-                    raise ConversionError("Missing required value: status")
-                if status_value not in status_filter:
-                    continue
-            _ensure_required_row_fields(normalized_row)
-            result_id = cast(str, normalized_row["resultId"])
+            normalized_raw = _normalize_row(row)
+            try:
+                lms_row = TrackLmsRow.model_validate(normalized_raw)
+            except ValidationError as exc:
+                raise ConversionError(f"Row validation failed: {exc}") from exc
 
-            end_at = _format_timestamp(
-                cast(str, normalized_row["endAt"]), tzinfo, field_name="endAt"
-            )
+            if status_filter is not None:
+                if lms_row.status not in status_filter:
+                    continue
+
+            end_at = _format_timestamp(lms_row.end_at, tzinfo, field_name="endAt")
             start_at = None
-            if normalized_row.get("startAt"):
-                start_at = _format_timestamp(
-                    cast(str, normalized_row["startAt"]), tzinfo, field_name="startAt"
-                )
+            if lms_row.start_at:
+                start_at = _format_timestamp(lms_row.start_at, tzinfo, field_name="startAt")
 
             root = _build_assessment_result(
-                normalized_row,
+                lms_row,
                 end_at=end_at,
                 start_at=start_at,
                 question_indices=question_indices,
@@ -148,11 +172,9 @@ def convert_csv_text_to_qti_results(
                 identifier_to_question = _build_identifier_to_question_map(
                     question_indices, item_identifiers
                 )
-                _apply_rubric_scoring(
-                    root, normalized_row, item_rubrics, identifier_to_question
-                )
+                _apply_rubric_scoring(root, lms_row, item_rubrics, identifier_to_question)
             xml = _serialize_xml(root)
-            results.append(QtiResultDocument(result_id=result_id, xml=xml))
+            results.append(QtiResultDocument(result_id=lms_row.result_id, xml=xml))
 
     return results
 
@@ -200,12 +222,6 @@ def _normalize_status_filter(
     return normalized
 
 
-def _ensure_required_row_fields(row: dict[str, str | None]) -> None:
-    for field_name in REQUIRED_ROW_FIELDS:
-        if not row.get(field_name):
-            raise ConversionError(f"Missing required value: {field_name}")
-
-
 def _collect_question_indices(fieldnames: Iterable[str]) -> list[int]:
     indices: set[int] = set()
     for name in fieldnames:
@@ -218,7 +234,7 @@ def _collect_question_indices(fieldnames: Iterable[str]) -> list[int]:
 
 
 def _build_assessment_result(
-    row: dict[str, str | None],
+    row: TrackLmsRow,
     *,
     end_at: str,
     start_at: str | None,
@@ -241,13 +257,24 @@ def _build_assessment_result(
     return root
 
 
-def _append_context(parent: ET.Element, row: dict[str, str | None]) -> None:
-    account = row.get("account")
-    if not account:
-        raise ConversionError("Missing required value: account")
-    context = ET.SubElement(parent, _qti("context"), {"sourcedId": account})
-    for source_id, column in CONTEXT_IDENTIFIERS:
-        value = row.get(column)
+def _append_context(parent: ET.Element, row: TrackLmsRow) -> None:
+    context = ET.SubElement(parent, _qti("context"), {"sourcedId": row.account})
+    # Map from attribute name to sourceID
+    mappings = [
+        ("class_id", "classId"),
+        ("class_name", "className"),
+        ("trainee_id", "candidateId"),
+        ("account", "candidateAccount"),
+        ("trainee_name", "candidateName"),
+        ("trainee_klass_id", "candidateClassId"),
+        ("material_id", "materialId"),
+        ("material_title", "materialTitle"),
+        ("material_type", "materialType"),
+        ("material_version_number", "materialVersionNumber"),
+        ("result_id", "resultId"),
+    ]
+    for attr, source_id in mappings:
+        value = getattr(row, attr)
         if value is None:
             continue
         ET.SubElement(
@@ -259,24 +286,19 @@ def _append_context(parent: ET.Element, row: dict[str, str | None]) -> None:
 
 def _append_test_result(
     parent: ET.Element,
-    row: dict[str, str | None],
+    row: TrackLmsRow,
     *,
     end_at: str,
     start_at: str | None,
 ) -> None:
-    test_identifier = row.get("id")
-    if not test_identifier:
-        raise ConversionError("Missing required value: id")
-
     test_result = ET.SubElement(
         parent,
         _qti("testResult"),
-        {"identifier": test_identifier, "datestamp": end_at},
+        {"identifier": row.test_id, "datestamp": end_at},
     )
 
-    time_spent = row.get("timeSpentSeconds")
-    if time_spent is not None:
-        seconds = _parse_int(time_spent, field_name="timeSpentSeconds")
+    if row.time_spent_seconds is not None:
+        seconds = _parse_int(row.time_spent_seconds, field_name="timeSpentSeconds")
         _append_response_variable(
             test_result,
             identifier="duration",
@@ -285,9 +307,8 @@ def _append_test_result(
             candidate_values=[f"PT{seconds}S"],
         )
 
-    restart_count = row.get("restartCount")
-    if restart_count is not None:
-        attempts = _parse_int(restart_count, field_name="restartCount") + 1
+    if row.restart_count is not None:
+        attempts = _parse_int(row.restart_count, field_name="restartCount") + 1
         _append_response_variable(
             test_result,
             identifier="numAttempts",
@@ -296,7 +317,7 @@ def _append_test_result(
             candidate_values=[str(attempts)],
         )
 
-    completion_status = _map_completion_status(row.get("status"))
+    completion_status = _map_completion_status(row.status)
     _append_outcome_variable(
         test_result,
         identifier="completionStatus",
@@ -308,37 +329,37 @@ def _append_test_result(
         test_result,
         identifier="SCORE",
         base_type="float",
-        value=row.get("score"),
+        value=row.score,
     )
     _append_outcome_variable(
         test_result,
         identifier="TRACKLMS_QUESTION_COUNT",
         base_type="integer",
-        value=row.get("questionCount"),
+        value=row.question_count,
     )
     _append_outcome_variable(
         test_result,
         identifier="TRACKLMS_CORRECT_COUNT",
         base_type="integer",
-        value=row.get("correctCount"),
+        value=row.correct_count,
     )
     _append_outcome_variable(
         test_result,
         identifier="TRACKLMS_TITLE",
         base_type="string",
-        value=row.get("title"),
+        value=row.title,
     )
     _append_outcome_variable(
         test_result,
         identifier="TRACKLMS_IS_OPTIONAL",
         base_type="boolean",
-        value=row.get("isOptional"),
+        value=row.is_optional,
     )
     _append_outcome_variable(
         test_result,
         identifier="TRACKLMS_TIME_LIMIT_MINUTES",
         base_type="integer",
-        value=row.get("materialTimeLimitMinutes"),
+        value=row.material_time_limit_minutes,
     )
     _append_outcome_variable(
         test_result,
@@ -356,17 +377,18 @@ def _append_test_result(
 
 def _append_item_results(
     parent: ET.Element,
-    row: dict[str, str | None],
+    row: TrackLmsRow,
     *,
     end_at: str,
     question_indices: list[int],
     item_identifiers: list[str] | None = None,
 ) -> None:
+    row_dict = row.model_extra or {}
     for position, index in enumerate(question_indices):
-        title = row.get(f"q{index}/title")
-        correct = row.get(f"q{index}/correct")
-        answer = row.get(f"q{index}/answer")
-        score = row.get(f"q{index}/score")
+        title = row_dict.get(f"q{index}/title")
+        correct = row_dict.get(f"q{index}/correct")
+        answer = row_dict.get(f"q{index}/answer")
+        score = row_dict.get(f"q{index}/score")
 
         if not any([title, correct, answer, score]):
             continue
@@ -435,7 +457,7 @@ def _append_item_results(
 
 def _apply_rubric_scoring(
     root: ET.Element,
-    row: dict[str, str | None],
+    row: TrackLmsRow,
     item_rubrics: dict[str, Rubric],
     identifier_to_question: dict[str, int],
 ) -> None:
@@ -448,6 +470,7 @@ def _apply_rubric_scoring(
         raise ConversionError("itemResult not found for scoring update.")
 
     processed_scores: list[tuple[int, int]] = []
+    row_dict = row.model_extra or {}
 
     for item_result in item_results:
         identifier = item_result.attrib.get("identifier")
@@ -461,9 +484,9 @@ def _apply_rubric_scoring(
         question_index = identifier_to_question.get(identifier)
         if question_index is None:
             raise ConversionError(f"Missing question mapping for item: {identifier}")
-        score_value = row.get(f"q{question_index}/score")
-        correct = row.get(f"q{question_index}/correct")
-        answer = row.get(f"q{question_index}/answer")
+        score_value = row_dict.get(f"q{question_index}/score")
+        correct = row_dict.get(f"q{question_index}/correct")
+        answer = row_dict.get(f"q{question_index}/answer")
         question_type = _detect_question_type(correct, answer)
 
         all_met = _criteria_all_met(question_type, score_value, question_index)
