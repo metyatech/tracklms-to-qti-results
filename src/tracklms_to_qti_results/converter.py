@@ -5,12 +5,12 @@ from __future__ import annotations
 import csv
 import io
 import re
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Iterable
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-
 import xml.etree.ElementTree as ET
+from collections.abc import Iterable
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta, timezone
+from typing import cast
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 @dataclass(frozen=True)
@@ -126,15 +126,15 @@ def convert_csv_text_to_qti_results(
                 if status_value not in status_filter:
                     continue
             _ensure_required_row_fields(normalized_row)
-            result_id = normalized_row["resultId"]
+            result_id = cast(str, normalized_row["resultId"])
 
             end_at = _format_timestamp(
-                normalized_row["endAt"], tzinfo, field_name="endAt"
+                cast(str, normalized_row["endAt"]), tzinfo, field_name="endAt"
             )
             start_at = None
             if normalized_row.get("startAt"):
                 start_at = _format_timestamp(
-                    normalized_row["startAt"], tzinfo, field_name="startAt"
+                    cast(str, normalized_row["startAt"]), tzinfo, field_name="startAt"
                 )
 
             root = _build_assessment_result(
@@ -157,7 +157,7 @@ def convert_csv_text_to_qti_results(
     return results
 
 
-def _normalize_header(fieldnames: Iterable[str]) -> list[str]:
+def _normalize_header(fieldnames: Iterable[str | None]) -> list[str]:
     normalized: list[str] = []
     for index, name in enumerate(fieldnames):
         if name is None:
@@ -180,8 +180,6 @@ def _ensure_required_headers(fieldnames: Iterable[str]) -> None:
 def _normalize_row(row: dict[str, str | None]) -> dict[str, str | None]:
     normalized: dict[str, str | None] = {}
     for key, value in row.items():
-        if key is None:
-            continue
         normalized[key] = _clean_value(value)
     return normalized
 
@@ -491,11 +489,11 @@ def _apply_rubric_scoring(
         )
         processed_scores.append((item_score_scaled, rubric.scale_digits))
 
-    test_scale = max((scale for _, scale in processed_scores), default=0)
+    test_scale = max((s_scale for _, s_scale in processed_scores), default=0)
     test_score_scaled = 0
-    for score_value, scale in processed_scores:
-        multiplier = 10 ** (test_scale - scale)
-        test_score_scaled += score_value * multiplier
+    for s_val, s_scale in processed_scores:
+        multiplier = 10 ** (test_scale - s_scale)
+        test_score_scaled += s_val * multiplier
 
     _upsert_outcome_variable(
         test_result,
@@ -677,7 +675,7 @@ def _load_timezone(timezone_name: str) -> ZoneInfo | timezone:
 
 def _fallback_timezone(timezone_name: str) -> timezone | None:
     if timezone_name == "UTC":
-        return timezone.utc
+        return UTC
     if timezone_name == "Asia/Tokyo":
         return timezone(timedelta(hours=9))
     return None
@@ -822,9 +820,11 @@ def _criteria_all_met(
 
 
 def _decimal_places(value: str) -> int:
-    normalized = value[1:] if value.startswith("+") else value
+    normalized: str = value[1:] if value.startswith("+") else value
     index = normalized.find(".")
-    return 0 if index == -1 else len(normalized) - index - 1
+    if index == -1:
+        return 0
+    return int(len(normalized) - index - 1)
 
 
 def _to_scaled_int(value: str, scale_digits: int) -> int:
@@ -834,7 +834,7 @@ def _to_scaled_int(value: str, scale_digits: int) -> int:
     whole, _, frac = cleaned.partition(".")
     padded = (frac or "").ljust(scale_digits, "0")[:scale_digits]
     scale_factor = 10**scale_digits
-    scaled = int(whole or "0") * scale_factor + int(padded or "0")
+    scaled = int(int(whole or "0") * scale_factor + int(padded or "0"))
     return -scaled if negative else scaled
 
 

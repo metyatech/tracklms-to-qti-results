@@ -5,11 +5,11 @@ import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
-import shutil
-import uuid
 import unittest
+import uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -455,7 +455,8 @@ class CliTest(unittest.TestCase):
                     str(csv_path),
                     "--out-dir",
                     str(out_dir),
-                ]
+                ],
+                input_text="",
             )
 
             self.assertNotEqual(result.returncode, 0)

@@ -8,6 +8,7 @@ import logging
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import cast
 
 from .converter import ConversionError, convert_csv_text_to_qti_results
 from .version import __version__
@@ -135,10 +136,10 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         out_dir = output_target
-        if outputs:
+        if outputs and isinstance(out_dir, Path):
             out_dir.mkdir(parents=True, exist_ok=True)
         _confirm_overwrite(outputs, assume_yes=args.assume_yes)
-        write_outputs = _build_output_plan(results, output_target, include_xml=True)
+        write_outputs = _build_output_plan(results, cast(Path, output_target), include_xml=True)
         _write_outputs(write_outputs)
         LOG.info("Wrote %s output file(s).", len(write_outputs))
         _emit_output_plan(outputs, out_dir, mode="write", as_json=args.json)
@@ -188,7 +189,7 @@ def _build_output_plan(
         if output_target == "-":
             outputs.append({"resultId": result.result_id, "target": "stdout"})
         else:
-            output_path = output_target / f"assessmentResult-{result.result_id}.xml"
+            output_path = cast(Path, output_target) / f"assessmentResult-{result.result_id}.xml"
             entry: dict[str, str] = {
                 "resultId": result.result_id,
                 "path": str(output_path),
@@ -265,7 +266,7 @@ def _write_stdout_output(results: list, *, as_json: bool) -> None:
 
 def _load_assessment_test(
     assessment_test_path: str | None,
-) -> "_AssessmentTest | None":
+) -> _AssessmentTest | None:
     if assessment_test_path is None:
         return None
     path = Path(assessment_test_path)
