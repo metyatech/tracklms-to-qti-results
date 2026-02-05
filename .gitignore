@@ -5,3 +5,7 @@ dist/
 *.egg-info/
 .ruff_cache/
 tests/.tmp_cli/
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
