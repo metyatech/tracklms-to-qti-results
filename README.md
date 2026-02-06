@@ -16,11 +16,16 @@ Converter and CLI are available.
 
 None.
 
-## Specs
+## Docs
 
-- Input spec: [docs/input-spec.md](docs/input-spec.md)
-- Output spec: [docs/output-spec.md](docs/output-spec.md)
-- CLI JSON schema: [docs/cli-output.schema.json](docs/cli-output.schema.json)
+- [Input specification](docs/input-spec.md)
+- [Output specification](docs/output-spec.md)
+- [CLI JSON schema](docs/cli-output.schema.json)
+- [CHANGELOG](CHANGELOG.md)
+- [CONTRIBUTING](CONTRIBUTING.md)
+- [CODE_OF_CONDUCT](CODE_OF_CONDUCT.md)
+- [SECURITY](SECURITY.md)
+- [LICENSE](LICENSE)
 
 ## Agent rules (AGENTS.md)
 
@@ -57,7 +62,7 @@ python -m ruff check .
 ### Type check
 
 ```sh
-python -m mypy src
+python -m pyright src
 ```
 
 ### Security audit

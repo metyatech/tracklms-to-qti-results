@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import cast
 
-from .converter import ConversionError, convert_csv_text_to_qti_results
+from .converter import ConversionError, QtiResultDocument, convert_csv_text_to_qti_results
 from .version import __version__
 
 ITEM_NS = "http://www.imsglobal.org/xsd/imsqti_v3p0"
@@ -179,7 +179,7 @@ def _configure_logging(args: argparse.Namespace) -> None:
 
 
 def _build_output_plan(
-    results: list,
+    results: list[QtiResultDocument],
     output_target: Path | str,
     *,
     include_xml: bool = False,
@@ -254,7 +254,7 @@ def _write_outputs(outputs: list[dict[str, str]]) -> None:
         output_path.write_text(xml, encoding="utf-8")
 
 
-def _write_stdout_output(results: list, *, as_json: bool) -> None:
+def _write_stdout_output(results: list[QtiResultDocument], *, as_json: bool) -> None:
     if as_json:
         raise ConversionError("Cannot emit JSON output when writing XML to stdout.")
     if len(results) != 1:
