@@ -733,7 +733,7 @@ def _validate_item_identifiers(
             "Assessment test item identifiers are required when item sources are provided."
         )
 
-    if any(not isinstance(value, str) or not value for value in assessment_test_item_identifiers):
+    if any(not value for value in assessment_test_item_identifiers):
         raise ConversionError("Assessment test identifiers must be non-empty strings.")
 
     if len(set(assessment_test_item_identifiers)) != len(assessment_test_item_identifiers):
