@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import cast
 
-from .converter import ConversionError, convert_csv_text_to_qti_results
+from .converter import ConversionError, QtiResultDocument, convert_csv_text_to_qti_results
 from .version import __version__
 
 ITEM_NS = "http://www.imsglobal.org/xsd/imsqti_v3p0"
@@ -82,10 +82,7 @@ def main(argv: list[str] | None = None) -> int:
         "--only-status",
         action="append",
         default=None,
-        help=(
-            "Only include rows with the specified status. "
-            "Repeat to allow multiple statuses."
-        ),
+        help=("Only include rows with the specified status. Repeat to allow multiple statuses."),
     )
     parser.add_argument(
         "--dry-run",
@@ -179,7 +176,7 @@ def _configure_logging(args: argparse.Namespace) -> None:
 
 
 def _build_output_plan(
-    results: list,
+    results: list[QtiResultDocument],
     output_target: Path | str,
     *,
     include_xml: bool = False,
@@ -226,9 +223,7 @@ def _emit_output_plan(
 
 def _confirm_overwrite(outputs: list[dict[str, str]], *, assume_yes: bool) -> None:
     existing = [
-        output["path"]
-        for output in outputs
-        if "path" in output and Path(output["path"]).exists()
+        output["path"] for output in outputs if "path" in output and Path(output["path"]).exists()
     ]
     if not existing:
         return
@@ -236,8 +231,7 @@ def _confirm_overwrite(outputs: list[dict[str, str]], *, assume_yes: bool) -> No
         return
     if not sys.stdin.isatty():
         raise ConversionError(
-            "Refusing to overwrite existing files without a TTY. "
-            "Re-run with --yes to proceed."
+            "Refusing to overwrite existing files without a TTY. Re-run with --yes to proceed."
         )
     prompt = f"{len(existing)} output file(s) already exist. Overwrite? [y/N]: "
     response = input(prompt).strip().lower()
@@ -254,13 +248,11 @@ def _write_outputs(outputs: list[dict[str, str]]) -> None:
         output_path.write_text(xml, encoding="utf-8")
 
 
-def _write_stdout_output(results: list, *, as_json: bool) -> None:
+def _write_stdout_output(results: list[QtiResultDocument], *, as_json: bool) -> None:
     if as_json:
         raise ConversionError("Cannot emit JSON output when writing XML to stdout.")
     if len(results) != 1:
-        raise ConversionError(
-            "Stdout output requires exactly one result. Use --out-dir or --json."
-        )
+        raise ConversionError("Stdout output requires exactly one result. Use --out-dir or --json.")
     print(results[0].xml)
 
 
@@ -271,9 +263,7 @@ def _load_assessment_test(
         return None
     path = Path(assessment_test_path)
     if not path.is_file():
-        raise ConversionError(
-            f"Assessment test file not found: {assessment_test_path}"
-        )
+        raise ConversionError(f"Assessment test file not found: {assessment_test_path}")
     text = path.read_text(encoding="utf-8")
     return _parse_assessment_test(text, base_dir=path.parent)
 
@@ -337,9 +327,7 @@ def _ensure_item_identifier_matches(xml: str, expected_identifier: str) -> None:
         raise ConversionError("Root element must be qti-assessment-item.")
     actual_identifier = root.attrib.get("identifier")
     if actual_identifier != expected_identifier:
-        raise ConversionError(
-            f"Assessment item identifier mismatch: {expected_identifier}"
-        )
+        raise ConversionError(f"Assessment item identifier mismatch: {expected_identifier}")
 
 
 def _extract_namespace(tag: str) -> str | None:

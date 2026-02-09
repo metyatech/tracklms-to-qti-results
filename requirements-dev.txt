@@ -1,4 +1,5 @@
 ruff>=0.6.0
+pyright>=1.1.0
 mypy>=1.10.0
 types-setuptools
 pip-audit>=2.7.0

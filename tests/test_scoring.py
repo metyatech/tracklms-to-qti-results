@@ -24,9 +24,7 @@ def _load_fixture_text(filename: str) -> str:
 
 
 def _load_item_sources(*filenames: str) -> list[str]:
-    return [
-        (ITEM_DIR / filename).read_text(encoding="utf-8") for filename in filenames
-    ]
+    return [(ITEM_DIR / filename).read_text(encoding="utf-8") for filename in filenames]
 
 
 def _fixture_header() -> list[str]:
@@ -182,9 +180,7 @@ class ScoringUpdateTest(unittest.TestCase):
             ConversionError,
             "Assessment test item identifiers are required when item sources are provided",
         ):
-            convert_csv_text_to_qti_results(
-                csv_text, item_source_xmls=item_sources
-            )
+            convert_csv_text_to_qti_results(csv_text, item_source_xmls=item_sources)
 
     def test_scoring_requires_matching_item_count(self) -> None:
         csv_text = _build_csv_text({})

@@ -42,25 +42,41 @@ compose-agentsmd
 
 ## Development
 
-### Tests
+### Verification (Standard Suite)
+
+Run the full verification suite (format, lint, type check, tests, build, and audit):
 
 ```sh
-python -m unittest discover -s tests
+python run_verify.py
 ```
 
-### Lint
+### Individual commands
+
+#### Format
+
+```sh
+python -m ruff format .
+```
+
+#### Lint
 
 ```sh
 python -m ruff check .
 ```
 
-### Type check
+#### Type check
 
 ```sh
-python -m mypy src
+python -m pyright src
 ```
 
-### Security audit
+#### Tests
+
+```sh
+python -m unittest discover -s tests
+```
+
+#### Security audit
 
 ```sh
 python -m pip_audit -r requirements-dev.txt
@@ -106,6 +122,7 @@ Notes:
 - If `--output`/`--out-dir` is omitted, outputs go to `<input_dir>/qti-results` (or `./qti-results` when reading stdin).
 - Use `--output -` to emit a single XML document to stdout.
 - Use `--dry-run` to preview planned outputs without writing files.
+- Use `--verbose` to see informational logs, `--trace` for debug logs, or `--quiet` to see only errors.
 - Use `--json` to emit a machine-readable summary to stdout.
 - Use `--yes`/`--force` to overwrite existing files without prompting.
 - Output files are written as `assessmentResult-<resultId>.xml`.
@@ -134,6 +151,14 @@ Breaking changes include (but are not limited to):
 6. Tag the release (example: `v1.2.3`) and push the tag.
 7. Create a GitHub Release with notes based on `CHANGELOG.md`.
 8. Publish to PyPI with `python -m twine upload dist/*`.
+
+## Resources
+
+- [LICENSE](LICENSE)
+- [CHANGELOG.md](CHANGELOG.md)
+- [SECURITY.md](SECURITY.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 
 ## Overview
 This repository contains the tracklms-to-qti-results project.
