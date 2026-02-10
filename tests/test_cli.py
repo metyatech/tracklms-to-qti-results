@@ -161,9 +161,7 @@ def _run_module(
 ) -> subprocess.CompletedProcess[str]:
     src_dir = ROOT_DIR / "src"
     env = dict(**os.environ)
-    env["PYTHONPATH"] = f"{src_dir}{os.pathsep}{env.get('PYTHONPATH', '')}".rstrip(
-        os.pathsep
-    )
+    env["PYTHONPATH"] = f"{src_dir}{os.pathsep}{env.get('PYTHONPATH', '')}".rstrip(os.pathsep)
     return subprocess.run(
         [sys.executable, "-m", "tracklms_to_qti_results", *args],
         input=input_text,
@@ -258,9 +256,7 @@ class CliTest(unittest.TestCase):
         temp_dir = _temp_dir()
         try:
             out_dir = Path(temp_dir)
-            result = _run_cli(
-                [str(csv_path), "--out-dir", str(out_dir), "--timezone", "UTC"]
-            )
+            result = _run_cli([str(csv_path), "--out-dir", str(out_dir), "--timezone", "UTC"])
 
             self.assertEqual(result.returncode, 0, result.stderr)
             output_file = out_dir / "assessmentResult-98767.xml"

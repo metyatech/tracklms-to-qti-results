@@ -125,9 +125,7 @@ def convert_csv_text_to_qti_results(
 
     tzinfo = _load_timezone(timezone)
     item_rubrics = _parse_item_rubrics(item_source_xmls)
-    item_identifiers = _validate_item_identifiers(
-        assessment_test_item_identifiers, item_rubrics
-    )
+    item_identifiers = _validate_item_identifiers(assessment_test_item_identifiers, item_rubrics)
     status_filter = _normalize_status_filter(allowed_statuses)
 
     with io.StringIO(csv_text) as handle:
@@ -140,9 +138,7 @@ def convert_csv_text_to_qti_results(
 
         question_indices = _collect_question_indices(fieldnames)
         if item_identifiers is not None and len(item_identifiers) != len(question_indices):
-            raise ConversionError(
-                "Assessment test item count does not match question count."
-            )
+            raise ConversionError("Assessment test item count does not match question count.")
         results: list[QtiResultDocument] = []
 
         for row in reader:
@@ -425,9 +421,7 @@ def _append_item_results(
                 base_type="identifier",
                 cardinality="single",
                 correct_values=[f"CHOICE_{correct}"],
-                candidate_values=_maybe_list(
-                    f"CHOICE_{answer}" if answer is not None else None
-                ),
+                candidate_values=_maybe_list(f"CHOICE_{answer}" if answer is not None else None),
             )
         else:
             correct_values = _extract_cloze_correct_values(correct or "")
@@ -494,9 +488,7 @@ def _apply_rubric_scoring(
 
         for rubric_index, criterion in enumerate(rubric.criteria, start=1):
             if all_met:
-                item_score_scaled += _to_scaled_int(
-                    criterion.points, rubric.scale_digits
-                )
+                item_score_scaled += _to_scaled_int(criterion.points, rubric.scale_digits)
             _upsert_outcome_variable(
                 item_result,
                 identifier=f"RUBRIC_{rubric_index}_MET",
@@ -546,9 +538,7 @@ def _append_response_variable(
         _append_value_container(response, "candidateResponse", candidate_values)
 
 
-def _append_value_container(
-    parent: ET.Element, tag: str, values: Iterable[str]
-) -> None:
+def _append_value_container(parent: ET.Element, tag: str, values: Iterable[str]) -> None:
     container = ET.SubElement(parent, _qti(tag))
     for value in values:
         value_element = ET.SubElement(container, _qti("value"))
@@ -602,9 +592,7 @@ def _upsert_outcome_variable(
     value_element.text = value
 
 
-def _detect_question_type(
-    correct: str | None, answer: str | None
-) -> str:
+def _detect_question_type(correct: str | None, answer: str | None) -> str:
     if correct and PLACEHOLDER_PATTERN.search(correct):
         return "cloze"
     if not correct:
@@ -642,9 +630,7 @@ def _map_completion_status(status: str | None) -> str:
     return "unknown"
 
 
-def _format_timestamp(
-    value: str, tzinfo: ZoneInfo | timezone, *, field_name: str
-) -> str:
+def _format_timestamp(value: str, tzinfo: ZoneInfo | timezone, *, field_name: str) -> str:
     try:
         parsed = datetime.strptime(value, "%Y/%m/%d %H:%M:%S")
     except ValueError as exc:
@@ -733,7 +719,7 @@ def _validate_item_identifiers(
             "Assessment test item identifiers are required when item sources are provided."
         )
 
-    if any(not isinstance(value, str) or not value for value in assessment_test_item_identifiers):
+    if any(not value for value in assessment_test_item_identifiers):
         raise ConversionError("Assessment test identifiers must be non-empty strings.")
 
     if len(set(assessment_test_item_identifiers)) != len(assessment_test_item_identifiers):
@@ -774,9 +760,7 @@ def _strip_namespace(tag: str) -> str:
 
 def _extract_rubric(root: ET.Element, identifier: str) -> Rubric:
     use_namespace = _extract_namespace(root.tag) == ITEM_NS
-    item_body = root.find(
-        _qti_item("qti-item-body") if use_namespace else "qti-item-body"
-    )
+    item_body = root.find(_qti_item("qti-item-body") if use_namespace else "qti-item-body")
     if item_body is None:
         raise ConversionError(f"Scorer rubric not found for item: {identifier}")
 
@@ -791,9 +775,7 @@ def _extract_rubric(root: ET.Element, identifier: str) -> Rubric:
     if scorer_block is None:
         raise ConversionError(f"Scorer rubric not found for item: {identifier}")
 
-    paragraphs = scorer_block.findall(
-        _qti_item("qti-p") if use_namespace else "qti-p"
-    )
+    paragraphs = scorer_block.findall(_qti_item("qti-p") if use_namespace else "qti-p")
     if not paragraphs:
         raise ConversionError(f"Scorer rubric not found for item: {identifier}")
 
@@ -815,18 +797,14 @@ def _extract_rubric(root: ET.Element, identifier: str) -> Rubric:
                 f"Invalid rubric points at index {index} for item: {identifier}"
             ) from exc
         if not parsed == parsed:
-            raise ConversionError(
-                f"Invalid rubric points at index {index} for item: {identifier}"
-            )
+            raise ConversionError(f"Invalid rubric points at index {index} for item: {identifier}")
         scale_digits = max(scale_digits, _decimal_places(points))
         criteria.append(RubricCriterion(points=points, text=criterion_text))
 
     return Rubric(criteria=criteria, scale_digits=scale_digits)
 
 
-def _criteria_all_met(
-    question_type: str, score_value: str | None, question_index: int
-) -> bool:
+def _criteria_all_met(question_type: str, score_value: str | None, question_index: int) -> bool:
     if question_type == "descriptive":
         return False
 
@@ -836,9 +814,7 @@ def _criteria_all_met(
     try:
         score = float(score_value)
     except ValueError as exc:
-        raise ConversionError(
-            f"Invalid q{question_index}/score for scoring update."
-        ) from exc
+        raise ConversionError(f"Invalid q{question_index}/score for scoring update.") from exc
     return score != 0.0
 
 
