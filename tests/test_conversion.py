@@ -296,6 +296,31 @@ class ConversionValidationTest(unittest.TestCase):
         with self.assertRaisesRegex(ConversionError, "status filter"):
             convert_csv_text_to_qti_results(csv_text, allowed_statuses={""})
 
+    def test_invalid_identifier_type_raises_conversion_error(self) -> None:
+        csv_text = _build_csv_text({"resultId": "200"})
+        item_ns = "http://www.imsglobal.org/xsd/imsqti_v3p0"
+        item_sources = [
+            f'<qti-assessment-item xmlns="{item_ns}" identifier="item-001">'
+            '  <qti-item-body>'
+            '    <qti-rubric-block view="scorer">'
+            '      <qti-p>[1] Criterion</qti-p>'
+            '    </qti-rubric-block>'
+            '  </qti-item-body>'
+            '</qti-assessment-item>'
+        ]
+
+        # Passing a dict as an identifier should be caught by our isinstance check
+        # and raise ConversionError instead of TypeError (from set())
+        invalid_identifiers = [{"not": "a string"}]
+
+        expected_msg = "Assessment test identifiers must be non-empty strings"
+        with self.assertRaisesRegex(ConversionError, expected_msg):
+            convert_csv_text_to_qti_results(
+                csv_text,
+                item_source_xmls=item_sources,
+                assessment_test_item_identifiers=invalid_identifiers, # type: ignore
+            )
+
 
 class ConversionMappingTest(unittest.TestCase):
     def test_restart_count_maps_to_num_attempts(self) -> None:

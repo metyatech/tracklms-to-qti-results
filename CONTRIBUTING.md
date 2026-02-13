@@ -13,6 +13,9 @@ Thanks for taking the time to contribute!
 ## Linting
 `python -m ruff check .`
 
+## Type checking
+`python -m pyright src`
+
 ## Documentation
 Update README and docs when changes affect behavior, inputs, or outputs.
 
