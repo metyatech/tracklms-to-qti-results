@@ -318,7 +318,7 @@ class ConversionValidationTest(unittest.TestCase):
             convert_csv_text_to_qti_results(
                 csv_text,
                 item_source_xmls=item_sources,
-                assessment_test_item_identifiers=invalid_identifiers, # type: ignore
+                assessment_test_item_identifiers=invalid_identifiers,  # type: ignore
             )
 
 
