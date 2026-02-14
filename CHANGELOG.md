@@ -6,6 +6,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## Unreleased
 
+### Changed
+- Migrated type checking from mypy to pyright.
+- Updated README.md with missing documentation links and current type check instructions.
+- Updated CI workflow to use pyright for full project verification.
+
+### Fixed
+- Type errors in tests identified by pyright.
+
 ## 0.2.1 - 2026-01-27
 
 ### Added

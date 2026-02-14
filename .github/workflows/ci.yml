@@ -21,7 +21,7 @@ jobs:
       - name: Lint
         run: python -m ruff check .
       - name: Type check
-        run: python -m pyright src
+        run: python -m pyright
       - name: Security audit
         run: python -m pip_audit -r requirements-dev.txt
       - name: Tests

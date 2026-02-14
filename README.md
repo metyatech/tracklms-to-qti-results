@@ -62,7 +62,7 @@ python -m ruff check .
 ### Type check
 
 ```sh
-python -m pyright src
+python -m pyright
 ```
 
 ### Security audit

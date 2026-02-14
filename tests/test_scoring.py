@@ -118,6 +118,8 @@ class ScoringUpdateTest(unittest.TestCase):
         q2 = _find_item_result(root, "item-002")
         self.assertIsNotNone(q1)
         self.assertIsNotNone(q2)
+        assert q1 is not None
+        assert q2 is not None
 
         self.assertEqual(_find_outcome_value(q1, "RUBRIC_1_MET"), "false")
         self.assertEqual(_find_outcome_value(q1, "RUBRIC_2_MET"), "false")
@@ -129,6 +131,7 @@ class ScoringUpdateTest(unittest.TestCase):
 
         test_result = root.find("qti:testResult", NS)
         self.assertIsNotNone(test_result)
+        assert test_result is not None
         self.assertEqual(_find_outcome_value(test_result, "SCORE"), "3")
 
     def test_scoring_updates_cloze_when_score_zero(self) -> None:
@@ -166,12 +169,14 @@ class ScoringUpdateTest(unittest.TestCase):
         root = ET.fromstring(results[0].xml)
         q1 = _find_item_result(root, "item-001")
         self.assertIsNotNone(q1)
+        assert q1 is not None
         self.assertEqual(_find_outcome_value(q1, "RUBRIC_1_MET"), "false")
         self.assertEqual(_find_outcome_value(q1, "RUBRIC_2_MET"), "false")
         self.assertEqual(_find_outcome_value(q1, "SCORE"), "0")
 
         test_result = root.find("qti:testResult", NS)
         self.assertIsNotNone(test_result)
+        assert test_result is not None
         self.assertEqual(_find_outcome_value(test_result, "SCORE"), "0")
 
     def test_scoring_requires_assessment_test_identifiers(self) -> None:

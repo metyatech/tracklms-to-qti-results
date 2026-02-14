@@ -12,6 +12,7 @@ import unittest
 import uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import Any
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 FIXTURE_DIR = ROOT_DIR / "tests" / "fixtures"
@@ -121,7 +122,7 @@ def _clean_text(value: str | None) -> str | None:
     return stripped if stripped else None
 
 
-def _normalize_element(element: ET.Element) -> tuple:
+def _normalize_element(element: ET.Element) -> tuple[str, tuple[tuple[str, str], ...], str | None, tuple[Any, ...]]:
     return (
         element.tag,
         tuple(sorted(element.attrib.items())),
@@ -267,8 +268,10 @@ class CliTest(unittest.TestCase):
             root = ET.fromstring(output_file.read_text(encoding="utf-8"))
             test_result = root.find("qti:testResult", NS)
             self.assertIsNotNone(test_result)
+            assert test_result is not None
             datestamp = test_result.attrib.get("datestamp")
             self.assertIsNotNone(datestamp)
+            assert datestamp is not None
             self.assertTrue(datestamp.endswith("+00:00") or datestamp.endswith("Z"))
         finally:
             _cleanup_temp_dir(Path(temp_dir))
@@ -306,6 +309,7 @@ class CliTest(unittest.TestCase):
             root = ET.fromstring(output_file.read_text(encoding="utf-8"))
             q1 = root.find("qti:itemResult[@identifier='item-001']", NS)
             self.assertIsNotNone(q1)
+            assert q1 is not None
             rubric_1 = _find_outcome_value(q1, "RUBRIC_1_MET")
             rubric_2 = _find_outcome_value(q1, "RUBRIC_2_MET")
             self.assertEqual(rubric_1, "false")

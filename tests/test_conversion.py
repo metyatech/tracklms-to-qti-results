@@ -6,6 +6,7 @@ import sys
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import Any
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT_DIR / "src"
@@ -119,7 +120,7 @@ def _clean_text(value: str | None) -> str | None:
     return stripped if stripped else None
 
 
-def _normalize_element(element: ET.Element) -> tuple:
+def _normalize_element(element: ET.Element) -> tuple[str, tuple[tuple[str, str], ...], str | None, tuple[Any, ...]]:
     return (
         element.tag,
         tuple(sorted(element.attrib.items())),
@@ -331,6 +332,7 @@ class ConversionMappingTest(unittest.TestCase):
         root = ET.fromstring(results[0].xml)
         test_result = root.find("qti:testResult", NS)
         self.assertIsNotNone(test_result)
+        assert test_result is not None
         response = _find_response_variable(test_result, "numAttempts")
         self.assertEqual(_response_values(response, "candidateResponse"), ["3"])
 
@@ -342,14 +344,18 @@ class ConversionMappingTest(unittest.TestCase):
         root = ET.fromstring(results[0].xml)
         test_result = root.find("qti:testResult", NS)
         self.assertIsNotNone(test_result)
+        assert test_result is not None
         datestamp = test_result.attrib.get("datestamp")
         self.assertIsNotNone(datestamp)
+        assert datestamp is not None
         self.assertTrue(datestamp.endswith("+00:00") or datestamp.endswith("Z"))
 
         start_at = _find_outcome_value(root, "TRACKLMS_START_AT")
         end_at = _find_outcome_value(root, "TRACKLMS_END_AT")
         self.assertIsNotNone(start_at)
         self.assertIsNotNone(end_at)
+        assert start_at is not None
+        assert end_at is not None
         self.assertTrue(start_at.endswith("+00:00") or start_at.endswith("Z"))
         self.assertTrue(end_at.endswith("+00:00") or end_at.endswith("Z"))
 
@@ -381,16 +387,20 @@ class ConversionMappingTest(unittest.TestCase):
 
         q1 = _find_item_result(root, "Q1")
         self.assertIsNotNone(q1)
+        assert q1 is not None
         q1_response = _find_response_variable(q1, "RESPONSE")
         self.assertIsNotNone(q1_response)
+        assert q1_response is not None
         self.assertEqual(q1_response.attrib.get("baseType"), "string")
         self.assertEqual(q1_response.attrib.get("cardinality"), "single")
         self.assertIsNone(q1_response.find("qti:correctResponse", NS))
 
         q2 = _find_item_result(root, "Q2")
         self.assertIsNotNone(q2)
+        assert q2 is not None
         q2_response = _find_response_variable(q2, "RESPONSE")
         self.assertIsNotNone(q2_response)
+        assert q2_response is not None
         self.assertEqual(q2_response.attrib.get("baseType"), "identifier")
         self.assertEqual(q2_response.attrib.get("cardinality"), "single")
         self.assertEqual(_response_values(q2_response, "correctResponse"), ["CHOICE_2"])
@@ -398,8 +408,10 @@ class ConversionMappingTest(unittest.TestCase):
 
         q3 = _find_item_result(root, "Q3")
         self.assertIsNotNone(q3)
+        assert q3 is not None
         q3_response = _find_response_variable(q3, "RESPONSE")
         self.assertIsNotNone(q3_response)
+        assert q3_response is not None
         self.assertEqual(q3_response.attrib.get("baseType"), "string")
         self.assertEqual(q3_response.attrib.get("cardinality"), "ordered")
         self.assertEqual(_response_values(q3_response, "correctResponse"), ["A", "/B/"])
