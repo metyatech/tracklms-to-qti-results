@@ -13,6 +13,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Fixed
 - Type errors in tests identified by pyright.
+- Linting errors (line length) and type check command consistency across documentation.
 
 ## 0.2.1 - 2026-01-27
 

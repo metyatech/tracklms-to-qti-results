@@ -122,7 +122,9 @@ def _clean_text(value: str | None) -> str | None:
     return stripped if stripped else None
 
 
-def _normalize_element(element: ET.Element) -> tuple[str, tuple[tuple[str, str], ...], str | None, tuple[Any, ...]]:
+def _normalize_element(
+    element: ET.Element,
+) -> tuple[str, tuple[tuple[str, str], ...], str | None, tuple[Any, ...]]:
     return (
         element.tag,
         tuple(sorted(element.attrib.items())),

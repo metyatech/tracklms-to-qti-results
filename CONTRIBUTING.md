@@ -14,7 +14,7 @@ Thanks for taking the time to contribute!
 `python -m ruff check .`
 
 ## Type checking
-`python -m pyright src`
+`python -m pyright`
 
 ## Documentation
 Update README and docs when changes affect behavior, inputs, or outputs.
