@@ -32,7 +32,7 @@ None.
 This repository uses composed agent rules.
 
 - Source modules live in:
-  - [agent-rules/](agent-rules/) (git submodule)
+  - [metyatech/agent-rules](https://github.com/metyatech/agent-rules) (remote source)
   - [agent-rules-local/](agent-rules-local/) (project-specific additions)
 - The ruleset is defined in [agent-ruleset.json](agent-ruleset.json).
 - Generate/update `AGENTS.md` from the project root:
