@@ -734,7 +734,7 @@ def _validate_item_identifiers(
         )
 
     if any(not isinstance(value, str) or not value for value in assessment_test_item_identifiers):  # pyright: ignore[reportUnnecessaryIsInstance]
-        raise ConversionError("Assessment test identifiers must be non-empty strings.")
+        raise ConversionError("Assessment test identifiers must be non-empty.")
 
     if len(set(assessment_test_item_identifiers)) != len(assessment_test_item_identifiers):
         raise ConversionError("Assessment test item identifiers must be unique.")

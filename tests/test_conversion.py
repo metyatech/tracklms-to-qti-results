@@ -316,12 +316,12 @@ class ConversionValidationTest(unittest.TestCase):
         # and raise ConversionError instead of TypeError (from set())
         invalid_identifiers = [{"not": "a string"}]
 
-        expected_msg = "Assessment test identifiers must be non-empty strings"
+        expected_msg = "Assessment test identifiers must be non-empty."
         with self.assertRaisesRegex(ConversionError, expected_msg):
             convert_csv_text_to_qti_results(
                 csv_text,
                 item_source_xmls=item_sources,
-                assessment_test_item_identifiers=invalid_identifiers,  # type: ignore
+                assessment_test_item_identifiers=invalid_identifiers,  # pyright: ignore[reportArgumentType]
             )
 
 
