@@ -13,6 +13,8 @@ import uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from defusedxml import ElementTree as dET
+
 ROOT_DIR = Path(__file__).resolve().parents[1]
 FIXTURE_DIR = ROOT_DIR / "tests" / "fixtures"
 RUN_CLI = ROOT_DIR / "run_cli.py"
@@ -62,7 +64,7 @@ def _build_csv_text(overrides: dict[str, str]) -> str:
         "q1/answer": "console.log('hello');",
         "q1/score": "1",
     }
-    row = {name: "" for name in header}
+    row = dict.fromkeys(header, "")
     row.update(base_row)
     row.update(overrides)
     output = io.StringIO()
@@ -107,7 +109,7 @@ def _build_csv_texts(overrides_list: list[dict[str, str]]) -> str:
             "q1/answer": "console.log('hello');",
             "q1/score": "1",
         }
-        row = {name: "" for name in header}
+        row = dict.fromkeys(header, "")
         row.update(base_row)
         row.update(overrides)
         writer.writerow([row[name] for name in header])
@@ -146,6 +148,7 @@ def _run_cli(
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(RUN_CLI), *args],
+        check=False,
         input=input_text,
         text=True,
         capture_output=True,
@@ -166,6 +169,7 @@ def _run_module(
     )
     return subprocess.run(
         [sys.executable, "-m", "tracklms_to_qti_results", *args],
+        check=False,
         input=input_text,
         text=True,
         capture_output=True,
@@ -206,8 +210,8 @@ class CliTest(unittest.TestCase):
             self.assertTrue(output_file.exists())
             actual_xml = output_file.read_text(encoding="utf-8")
             self.assertEqual(
-                _normalize_element(ET.fromstring(actual_xml)),
-                _normalize_element(ET.fromstring(expected_xml)),
+                _normalize_element(dET.fromstring(actual_xml)),
+                _normalize_element(dET.fromstring(expected_xml)),
             )
         finally:
             _cleanup_temp_dir(Path(temp_dir))
@@ -264,7 +268,7 @@ class CliTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             output_file = out_dir / "assessmentResult-98767.xml"
-            root = ET.fromstring(output_file.read_text(encoding="utf-8"))
+            root = dET.fromstring(output_file.read_text(encoding="utf-8"))
             test_result = root.find("qti:testResult", NS)
             self.assertIsNotNone(test_result)
             datestamp = test_result.attrib.get("datestamp")
@@ -303,7 +307,7 @@ class CliTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             output_file = out_dir / "assessmentResult-98765.xml"
-            root = ET.fromstring(output_file.read_text(encoding="utf-8"))
+            root = dET.fromstring(output_file.read_text(encoding="utf-8"))
             q1 = root.find("qti:itemResult[@identifier='item-001']", NS)
             self.assertIsNotNone(q1)
             rubric_1 = _find_outcome_value(q1, "RUBRIC_1_MET")

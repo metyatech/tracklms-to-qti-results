@@ -6,6 +6,6 @@ from .version import __version__
 __all__ = [
     "ConversionError",
     "QtiResultDocument",
-    "convert_csv_text_to_qti_results",
     "__version__",
+    "convert_csv_text_to_qti_results",
 ]

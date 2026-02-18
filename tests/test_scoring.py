@@ -7,6 +7,8 @@ import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from defusedxml import ElementTree as dET
+
 ROOT_DIR = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(SRC_DIR))
@@ -71,7 +73,7 @@ def _build_csv_text(overrides: dict[str, str]) -> str:
         "q2/answer": "2",
         "q2/score": "1",
     }
-    row = {name: "" for name in header}
+    row = dict.fromkeys(header, "")
     row.update(base_row)
     row.update(overrides)
     output = io.StringIO()
@@ -113,7 +115,7 @@ class ScoringUpdateTest(unittest.TestCase):
             ],
         )
 
-        root = ET.fromstring(results[0].xml)
+        root = dET.fromstring(results[0].xml)
         q1 = _find_item_result(root, "item-001")
         q2 = _find_item_result(root, "item-002")
         self.assertIsNotNone(q1)
@@ -163,7 +165,7 @@ class ScoringUpdateTest(unittest.TestCase):
             ],
         )
 
-        root = ET.fromstring(results[0].xml)
+        root = dET.fromstring(results[0].xml)
         q1 = _find_item_result(root, "item-001")
         self.assertIsNotNone(q1)
         self.assertEqual(_find_outcome_value(q1, "RUBRIC_1_MET"), "false")
@@ -196,4 +198,22 @@ class ScoringUpdateTest(unittest.TestCase):
                 csv_text,
                 item_source_xmls=item_sources,
                 assessment_test_item_identifiers=["item-001"],
+            )
+
+    def test_scoring_rejects_nan_rubric_points(self) -> None:
+        csv_text = _build_csv_text({})
+        invalid_item_xml = """
+<qti-assessment-item identifier="item-nan">
+  <qti-item-body>
+    <qti-rubric-block view="scorer">
+      <qti-p>[NaN] Criterion</qti-p>
+    </qti-rubric-block>
+  </qti-item-body>
+</qti-assessment-item>
+"""
+        with self.assertRaisesRegex(ConversionError, "Invalid rubric points"):
+            convert_csv_text_to_qti_results(
+                csv_text,
+                item_source_xmls=[invalid_item_xml],
+                assessment_test_item_identifiers=["item-nan"],
             )

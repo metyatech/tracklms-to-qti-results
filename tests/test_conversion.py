@@ -7,6 +7,8 @@ import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from defusedxml import ElementTree as dET
+
 ROOT_DIR = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(SRC_DIR))
@@ -60,7 +62,7 @@ def _build_csv_text(overrides: dict[str, str]) -> str:
         "q1/answer": "console.log('hello');",
         "q1/score": "1",
     }
-    row = {name: "" for name in header}
+    row = dict.fromkeys(header, "")
     row.update(base_row)
     row.update(overrides)
     output = io.StringIO()
@@ -105,7 +107,7 @@ def _build_csv_texts(overrides_list: list[dict[str, str]]) -> str:
             "q1/answer": "console.log('hello');",
             "q1/score": "1",
         }
-        row = {name: "" for name in header}
+        row = dict.fromkeys(header, "")
         row.update(base_row)
         row.update(overrides)
         writer.writerow([row[name] for name in header])
@@ -154,7 +156,9 @@ def _find_item_result(root: ET.Element, identifier: str) -> ET.Element | None:
     return root.find(f".//qti:itemResult[@identifier='{identifier}']", NS)
 
 
-def _find_response_variable(parent: ET.Element, identifier: str) -> ET.Element | None:
+def _find_response_variable(
+    parent: ET.Element, identifier: str
+) -> ET.Element | None:
     for response in parent.findall("qti:responseVariable", NS):
         if response.attrib.get("identifier") == identifier:
             return response
@@ -179,8 +183,8 @@ def _response_values(
 
 class ConversionFixturesTest(unittest.TestCase):
     def assert_xml_equivalent(self, actual: str, expected: str) -> None:
-        actual_root = ET.fromstring(actual)
-        expected_root = ET.fromstring(expected)
+        actual_root = dET.fromstring(actual)
+        expected_root = dET.fromstring(expected)
         self.assertEqual(_normalize_element(actual_root), _normalize_element(expected_root))
 
     def test_descriptive_fixture(self) -> None:
@@ -237,7 +241,7 @@ class ConversionValidationTest(unittest.TestCase):
         results = convert_csv_text_to_qti_results(csv_text)
 
         self.assertEqual(len(results), 1)
-        root = ET.fromstring(results[0].xml)
+        root = dET.fromstring(results[0].xml)
         self.assertEqual(_find_outcome_value(root, "completionStatus"), "incomplete")
 
     def test_unknown_status_maps_to_unknown(self) -> None:
@@ -245,7 +249,7 @@ class ConversionValidationTest(unittest.TestCase):
         results = convert_csv_text_to_qti_results(csv_text)
 
         self.assertEqual(len(results), 1)
-        root = ET.fromstring(results[0].xml)
+        root = dET.fromstring(results[0].xml)
         self.assertEqual(_find_outcome_value(root, "completionStatus"), "unknown")
 
     def test_optional_duration_omitted_when_empty(self) -> None:
@@ -253,7 +257,7 @@ class ConversionValidationTest(unittest.TestCase):
         results = convert_csv_text_to_qti_results(csv_text)
 
         self.assertEqual(len(results), 1)
-        root = ET.fromstring(results[0].xml)
+        root = dET.fromstring(results[0].xml)
         self.assertFalse(_has_response_variable(root, "duration"))
 
     def test_optional_outcomes_omitted_when_empty(self) -> None:
@@ -267,7 +271,7 @@ class ConversionValidationTest(unittest.TestCase):
         results = convert_csv_text_to_qti_results(csv_text)
 
         self.assertEqual(len(results), 1)
-        root = ET.fromstring(results[0].xml)
+        root = dET.fromstring(results[0].xml)
         self.assertFalse(_has_outcome_variable(root, "TRACKLMS_TIME_LIMIT_MINUTES"))
         self.assertFalse(_has_outcome_variable(root, "TRACKLMS_IS_OPTIONAL"))
         self.assertFalse(_has_outcome_variable(root, "TRACKLMS_START_AT"))
@@ -303,7 +307,7 @@ class ConversionMappingTest(unittest.TestCase):
         results = convert_csv_text_to_qti_results(csv_text)
 
         self.assertEqual(len(results), 1)
-        root = ET.fromstring(results[0].xml)
+        root = dET.fromstring(results[0].xml)
         test_result = root.find("qti:testResult", NS)
         self.assertIsNotNone(test_result)
         response = _find_response_variable(test_result, "numAttempts")
@@ -314,7 +318,7 @@ class ConversionMappingTest(unittest.TestCase):
         results = convert_csv_text_to_qti_results(csv_text, timezone="UTC")
 
         self.assertEqual(len(results), 1)
-        root = ET.fromstring(results[0].xml)
+        root = dET.fromstring(results[0].xml)
         test_result = root.find("qti:testResult", NS)
         self.assertIsNotNone(test_result)
         datestamp = test_result.attrib.get("datestamp")
@@ -350,7 +354,7 @@ class ConversionMappingTest(unittest.TestCase):
         results = convert_csv_text_to_qti_results(csv_text)
 
         self.assertEqual(len(results), 1)
-        root = ET.fromstring(results[0].xml)
+        root = dET.fromstring(results[0].xml)
         items = root.findall("qti:itemResult", NS)
         self.assertEqual(len(items), 3)
 

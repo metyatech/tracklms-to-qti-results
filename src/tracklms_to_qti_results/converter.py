@@ -1,11 +1,13 @@
 import csv
 import io
+import math
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from defusedxml import ElementTree as dET
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 
@@ -75,7 +77,7 @@ ET.register_namespace("xsi", XSI_NS)
 
 QUESTION_PATTERN = re.compile(r"^q(\d+)/(title|correct|answer|score)$")
 PLACEHOLDER_PATTERN = re.compile(r"\$\{([^}]+)\}")
-RUBRIC_LINE_PATTERN = re.compile(r"^\s*\[([+-]?\d+(?:\.\d+)?)\]\s*(.+?)\s*$")
+RUBRIC_LINE_PATTERN = re.compile(r"^\s*\[([^\]]+)\]\s*(.+?)\s*$")
 
 REQUIRED_HEADERS = (
     "classId",
@@ -152,9 +154,8 @@ def convert_csv_text_to_qti_results(
             except ValidationError as exc:
                 raise ConversionError(f"Row validation failed: {exc}") from exc
 
-            if status_filter is not None:
-                if lms_row.status not in status_filter:
-                    continue
+            if status_filter is not None and lms_row.status not in status_filter:
+                continue
 
             end_at = _format_timestamp(lms_row.end_at, tzinfo, field_name="endAt")
             start_at = None
@@ -185,9 +186,10 @@ def _normalize_header(fieldnames: Iterable[str | None]) -> list[str]:
         if name is None:
             normalized.append("")
             continue
+        cleaned_name = name
         if index == 0:
-            name = name.lstrip("\ufeff")
-        normalized.append(name)
+            cleaned_name = name.lstrip("\ufeff")
+        normalized.append(cleaned_name)
     return normalized
 
 
@@ -689,10 +691,10 @@ def _serialize_xml(root: ET.Element) -> str:
 def _load_timezone(timezone_name: str) -> ZoneInfo | timezone:
     try:
         return ZoneInfo(timezone_name)
-    except ZoneInfoNotFoundError:
+    except ZoneInfoNotFoundError as exc:
         fallback = _fallback_timezone(timezone_name)
         if fallback is None:
-            raise ConversionError(f"Invalid timezone: {timezone_name}")
+            raise ConversionError(f"Invalid timezone: {timezone_name}") from exc
         return fallback
 
 
@@ -748,8 +750,8 @@ def _validate_item_identifiers(
 
 def _parse_item_source_xml(xml: str) -> ET.Element:
     try:
-        root = ET.fromstring(xml)
-    except ET.ParseError as exc:
+        root = dET.fromstring(xml)
+    except dET.ParseError as exc:
         raise ConversionError(f"Failed to parse item source: {exc}") from exc
 
     namespace = _extract_namespace(root.tag)
@@ -814,7 +816,7 @@ def _extract_rubric(root: ET.Element, identifier: str) -> Rubric:
             raise ConversionError(
                 f"Invalid rubric points at index {index} for item: {identifier}"
             ) from exc
-        if not parsed == parsed:
+        if math.isnan(parsed):
             raise ConversionError(
                 f"Invalid rubric points at index {index} for item: {identifier}"
             )

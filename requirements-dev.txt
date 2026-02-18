@@ -4,3 +4,4 @@ types-setuptools
 pip-audit>=2.7.0
 build>=1.0.0
 twine>=5.0.0
+pre-commit>=3.7.0

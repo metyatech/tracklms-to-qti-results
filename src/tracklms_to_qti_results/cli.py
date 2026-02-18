@@ -10,6 +10,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import cast
 
+from defusedxml import ElementTree as dET
+
 from .converter import ConversionError, convert_csv_text_to_qti_results
 from .version import __version__
 
@@ -122,8 +124,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         LOG.info("Converted %s result(s).", len(results))
         output_target = _resolve_output_target(args.input, args.out_dir)
-        if output_target == "-" and args.json and not args.dry_run:
-            raise ConversionError("Cannot combine --json with --output -.")
+        _check_stdout_json_conflict(output_target, args.json, args.dry_run)
 
         outputs = _build_output_plan(results, output_target)
         if args.dry_run:
@@ -151,6 +152,12 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     return 0
+
+
+def _check_stdout_json_conflict(output_target: Path | str, as_json: bool, is_dry_run: bool) -> None:
+    if output_target == "-" and as_json and not is_dry_run:
+        msg = "Cannot combine --json with --output -."
+        raise ConversionError(msg)
 
 
 def _read_input(value: str) -> str:
@@ -286,8 +293,8 @@ class _AssessmentTest:
 
 def _parse_assessment_test(text: str, *, base_dir: Path) -> _AssessmentTest:
     try:
-        root = ET.fromstring(text)
-    except ET.ParseError as exc:
+        root = dET.fromstring(text)
+    except dET.ParseError as exc:
         raise ConversionError(f"Failed to parse assessment test: {exc}") from exc
 
     namespace = _extract_namespace(root.tag)
@@ -327,8 +334,8 @@ def _find_item_refs(root: ET.Element, *, use_namespace: bool) -> list[ET.Element
 
 def _ensure_item_identifier_matches(xml: str, expected_identifier: str) -> None:
     try:
-        root = ET.fromstring(xml)
-    except ET.ParseError as exc:
+        root = dET.fromstring(xml)
+    except dET.ParseError as exc:
         raise ConversionError(f"Failed to parse assessment item: {exc}") from exc
     namespace = _extract_namespace(root.tag)
     if namespace and namespace != ITEM_NS:
