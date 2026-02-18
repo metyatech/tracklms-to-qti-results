@@ -74,7 +74,8 @@ Source: github:metyatech/agent-rules@HEAD/rules/global/autonomous-operations.md
 # Autonomous operations
 
 - Optimize for minimal human effort; default to automation over manual steps.
-- Drive work from the desired outcome: infer acceptance criteria, choose the shortest safe path, and execute end-to-end.
+- Drive work from the desired outcome: infer acceptance criteria, choose the highest-quality safe path that satisfies the requested quality/ideal bar, and execute end-to-end.
+- Treat speed as a secondary optimization; never trade down correctness, safety, robustness, or verifiability unless the requester explicitly approves that tradeoff.
 - Assume end-to-end autonomy for repository operations (issue triage, PRs, direct pushes to main/master, merges, releases, repo admin) only within repositories under the user's control (e.g., owned by metyatech or where the user has explicit maintainer/push authority), unless the user restricts scope; for third-party repos, require explicit user request before any of these operations.
 - Do not preserve backward compatibility unless explicitly requested; avoid legacy aliases and compatibility shims by default.
 - When work reveals rule gaps, redundancy, or misplacement, proactively update rule modules/rulesets (including moves/renames) and regenerate AGENTS.md without waiting for explicit user requests.
@@ -101,10 +102,12 @@ Source: github:metyatech/agent-rules@HEAD/rules/global/command-execution.md
 - Keep changes scoped to affected repositories; when shared modules change, update consumers and verify at least one.
 - If no branch is specified, work on the current branch; direct commits to main/master are allowed.
 - After addressing PR review feedback, resolve the corresponding review thread(s) before concluding; if you lack permission, state it explicitly.
-- After pushing fixes for PR review feedback, always re-request review from the same reviewer(s) when possible; if there are no current reviewers, ask who should review.
-- When Codex and/or Copilot review bots are configured for the repo, always trigger a re-review after pushing fixes.
-- For Codex re-review: comment `@codex review` on the PR.
-- For Copilot re-review: use `gh api` to remove+re-request the bot reviewer `copilot-pull-request-reviewer[bot]` (do not rely on `gh pr edit --add-reviewer Copilot`).
+- After pushing fixes for PR review feedback, re-request review only from reviewer(s) who posted the addressed feedback in the current round.
+- Do not re-request review from reviewers (including AI reviewers) who did not post addressed feedback, or who already indicated no actionable issues.
+- If no applicable reviewer remains, ask who should review next.
+- When Codex and/or Copilot review bots are configured for the repo, trigger re-review only for the bot(s) that posted addressed feedback.
+- For Codex re-review (only when applicable): comment `@codex review` on the PR.
+- For Copilot re-review (only when applicable): use `gh api` to remove+re-request the bot reviewer `copilot-pull-request-reviewer[bot]` (do not rely on `gh pr edit --add-reviewer Copilot`).
   - Remove: `gh api --method DELETE /repos/{owner}/{repo}/pulls/{pr}/requested_reviewers -f "reviewers[]=copilot-pull-request-reviewer[bot]"`
   - Add: `gh api --method POST /repos/{owner}/{repo}/pulls/{pr}/requested_reviewers -f "reviewers[]=copilot-pull-request-reviewer[bot]"`
 - After completing a PR, merge it, sync the target branch, and delete the PR branch locally and remotely.
@@ -126,6 +129,9 @@ Source: github:metyatech/agent-rules@HEAD/rules/global/implementation-and-coding
 - Avoid deep nesting; use guard clauses and small functions.
 - Use clear, intention-revealing naming; avoid "Utils" dumping grounds.
 - Prefer configuration/constants over hardcoding; consolidate change points.
+- For GUI changes, prioritize ergonomics and discoverability so first-time users can complete core flows without external documents.
+- Every user-facing GUI component (inputs, actions, status indicators, lists, and dialog controls) must include an in-app explanation (for example tooltip, context help panel, or equivalent).
+- Do not rely on README-only guidance for GUI operation; critical usage guidance must be available inside the GUI itself.
 - Keep everything DRY across code, specs, docs, tests, configs, and scripts; proactively refactor repeated procedures into shared configs/scripts with small, local overrides.
 - Persist durable runtime/domain data in a database with a fully normalized schema (3NF/BCNF target): store each fact once with keys/constraints, and compute derived statuses/views at read time instead of duplicating them.
 - Fix root causes; remove obsolete/unused code, branches, comments, and helpers.
@@ -148,6 +154,17 @@ Source: github:metyatech/agent-rules@HEAD/rules/global/linting-formatting-and-st
 - Treat warnings as errors in CI; when a tool cannot, use its strictest available setting so warnings fail CI.
 - Do not disable rules globally; keep suppressions narrow, justified, and time-bounded.
 - Pin tool versions (lockfiles/manifests) for reproducible CI.
+
+## Design and visual accessibility automation
+
+- For any design/UI styling change in any project, enforce automated visual accessibility checks as part of the repo-standard `verify` command and CI.
+- Do not rely on per-page/manual test maintenance; use route discovery (for example sitemap, generated route lists, or framework route manifests) so newly added pages are automatically included.
+- Validate both light and dark themes when theme switching is supported.
+- Validate at least default, hover, and focus states for interactive elements.
+- Enforce non-text boundary contrast checks across all visible UI elements that present boundaries (including interactive controls and container-like elements), not only predefined component classes.
+- Do not hardcode a narrow selector allowlist for boundary checks; use broad DOM discovery with only minimal technical exclusions (for example hidden/zero-size/non-rendered nodes).
+- Fail CI on violations; do not silently ignore design regressions.
+- If temporary exclusions are unavoidable, keep them narrowly scoped, documented with rationale, and remove them promptly.
 
 ## Security baseline
 
@@ -246,6 +263,12 @@ Source: github:metyatech/agent-rules@HEAD/rules/global/observability-and-diagnos
 - Design for debuggability: make failures diagnosable from logs/metrics/traces without reproducing locally.
 - Add observability in the same change set as behavior changes that affect runtime behavior, performance, or reliability.
 
+## Performance investigations
+
+- For performance/latency issues, measure first: establish a baseline, then use profiling/instrumentation to identify hotspots; do not implement "optimizations" based on guesswork.
+- Record before/after numbers and the measurement method in the change set (tests, benchmark output, logs, or deterministic manual steps).
+- Prefer automated performance regression tests/benchmarks when feasible; otherwise provide deterministic manual measurement steps.
+
 ## Logging
 
 - Prefer structured logs for services; keep field names stable (e.g., level, message, component, request_id/trace_id, version).
@@ -343,6 +366,8 @@ Source: github:metyatech/agent-rules@HEAD/rules/global/quality-testing-and-error
 - Keep tests deterministic; minimize time/random/external I/O; inject when needed.
 - For deterministic output files, use full-content snapshot/golden tests.
 - Prefer making nondeterministic failures reproducible over adding sleeps/retries; do not mask flakiness.
+- For timing/order/race issues, prefer deterministic synchronization (events, versioned state, acks/handshakes) over fixed sleeps.
+- If a heuristic wait is unavoidable, it MUST be condition-based with a hard deadline and diagnostics, and requires explicit requester approval.
 - For integration boundaries (network/DB/external services/UI flows), add an integration/E2E/contract test that exercises the boundary; avoid unit-only coverage for integration bugs.
 - For non-trivial changes, create a small test matrix (scenarios × inputs × states) and cover the highest-risk combinations; document intentional gaps.
 
