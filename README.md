@@ -42,25 +42,41 @@ compose-agentsmd
 
 ## Development
 
-### Tests
+### Verification
 
-```sh
-python -m unittest discover -s tests
+Run the full verification suite (lint, format, type check, tests, audit):
+
+```powershell
+./verify.ps1
 ```
 
-### Lint
+### Individual commands
+
+#### Lint
 
 ```sh
 python -m ruff check .
 ```
 
-### Type check
+#### Format
 
 ```sh
-python -m mypy src
+python -m ruff format .
 ```
 
-### Security audit
+#### Type check
+
+```sh
+pyright src
+```
+
+#### Tests
+
+```sh
+python -m unittest discover -s tests
+```
+
+#### Security audit
 
 ```sh
 python -m pip_audit -r requirements-dev.txt

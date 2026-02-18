@@ -7,16 +7,14 @@ Thanks for taking the time to contribute!
 - Create and activate a virtual environment
 - Install dev tools: `python -m pip install -r requirements-dev.txt`
 
-## Running tests
-`python -m unittest discover -s tests`
+## Verification
+Run the full verification suite (lint, format, type check, tests, audit):
 
-## Linting
-`python -m ruff check .`
-
-## Documentation
-Update README and docs when changes affect behavior, inputs, or outputs.
+```powershell
+./verify.ps1
+```
 
 ## Pull requests
 - Keep changes focused and well described.
 - Add or update tests for behavior changes.
-- Ensure CI passes before requesting review.
+- Ensure all checks pass (run `./verify.ps1` locally) before requesting review.
