@@ -50,7 +50,7 @@ class TrackLmsRow(BaseModel):
     material_version_number: str = Field(alias="MaterialVersionNumber")
     result_id: str = Field(alias="resultId")
     status: str
-    end_at: str = Field(alias="endAt")
+    end_at: str | None = Field(default=None, alias="endAt")
     test_id: str = Field(alias="id")
 
     # Optional fields
@@ -151,6 +151,9 @@ def convert_csv_text_to_qti_results(
             if status_filter is not None:
                 if lms_row.status not in status_filter:
                     continue
+
+            if lms_row.end_at is None:
+                continue  # Skip rows with no timestamp (e.g., NotStarted)
 
             end_at = _format_timestamp(lms_row.end_at, tzinfo, field_name="endAt")
             start_at = None

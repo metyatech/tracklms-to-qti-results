@@ -225,10 +225,29 @@ class ConversionValidationTest(unittest.TestCase):
         with self.assertRaisesRegex(ConversionError, "resultId"):
             convert_csv_text_to_qti_results(csv_text)
 
-    def test_missing_end_at_raises_error(self) -> None:
+    def test_completed_row_with_empty_end_at_is_skipped(self) -> None:
         csv_text = _build_csv_text({"endAt": ""})
-        with self.assertRaisesRegex(ConversionError, "endAt"):
-            convert_csv_text_to_qti_results(csv_text)
+        results = convert_csv_text_to_qti_results(csv_text)
+        self.assertEqual(len(results), 0)
+
+    def test_not_started_row_with_empty_end_at_is_skipped_mixed_csv(self) -> None:
+        csv_text = _build_csv_texts(
+            [
+                {
+                    "resultId": "300",
+                    "status": "NotStarted",
+                    "endAt": "",
+                },
+                {
+                    "resultId": "301",
+                    "status": "Completed",
+                    "endAt": "2026/01/02 10:30:00",
+                },
+            ]
+        )
+        results = convert_csv_text_to_qti_results(csv_text)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].result_id, "301")
 
     def test_deadline_expired_maps_to_incomplete(self) -> None:
         csv_text = _build_csv_text({"status": "DeadlineExpired"})
