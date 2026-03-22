@@ -6,6 +6,11 @@ Convert Track LMS exports into QTI 3.0 Results Reporting artifacts.
 
 Converter and CLI are available.
 
+- [SECURITY.md](SECURITY.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [LICENSE](LICENSE)
+- [CHANGELOG.md](CHANGELOG.md)
+
 ## Setup
 
 - Python 3.11+

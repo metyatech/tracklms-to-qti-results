@@ -6,6 +6,15 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## Unreleased
 
+### Added
+- Secure XML parsing using `defusedxml`.
+- Code formatting check with `ruff format` in CI.
+
+### Changed
+- All source files are now formatted with `ruff format`.
+- `README.md` now includes mandatory links to repository governance and meta files.
+- `requirements-dev.txt` now includes `types-defusedxml` for type checking.
+
 ## 0.2.1 - 2026-01-27
 
 ### Added

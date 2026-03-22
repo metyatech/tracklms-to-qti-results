@@ -161,9 +161,7 @@ def _find_response_variable(parent: ET.Element, identifier: str) -> ET.Element |
     return None
 
 
-def _response_values(
-    response_variable: ET.Element | None, response_tag: str
-) -> list[str]:
+def _response_values(response_variable: ET.Element | None, response_tag: str) -> list[str]:
     if response_variable is None:
         return []
     container = response_variable.find(f"qti:{response_tag}", NS)
@@ -284,9 +282,7 @@ class ConversionValidationTest(unittest.TestCase):
                 {"resultId": "201", "status": "InProgress"},
             ]
         )
-        results = convert_csv_text_to_qti_results(
-            csv_text, allowed_statuses={"Completed"}
-        )
+        results = convert_csv_text_to_qti_results(csv_text, allowed_statuses={"Completed"})
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].result_id, "200")
@@ -295,6 +291,16 @@ class ConversionValidationTest(unittest.TestCase):
         csv_text = _build_csv_text({"resultId": "200"})
         with self.assertRaisesRegex(ConversionError, "status filter"):
             convert_csv_text_to_qti_results(csv_text, allowed_statuses={""})
+
+    def test_secure_xml_parsing_rejects_entities(self) -> None:
+        csv_text = _build_csv_text({})
+        malicious_xml = '<!DOCTYPE root [<!ENTITY xxe "malicious">]><qti-assessment-item identifier="item1" title="&xxe;"></qti-assessment-item>'
+        with self.assertRaisesRegex(ConversionError, "EntitiesForbidden"):
+            convert_csv_text_to_qti_results(
+                csv_text,
+                item_source_xmls=[malicious_xml],
+                assessment_test_item_identifiers=["item1"],
+            )
 
 
 class ConversionMappingTest(unittest.TestCase):

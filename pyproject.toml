@@ -17,6 +17,7 @@ classifiers = [
 ]
 dependencies = [
   "pydantic>=2.7.0",
+  "defusedxml>=0.7.1",
 ]
 dynamic = ["version"]
 
