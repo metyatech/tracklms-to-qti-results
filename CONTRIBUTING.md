@@ -14,6 +14,12 @@ Run the full verification suite (lint, format, type check, tests, audit):
 ./verify.ps1
 ```
 
+For an individual type-check run, use:
+
+```sh
+python -m pyright
+```
+
 ## Pull requests
 - Keep changes focused and well described.
 - Add or update tests for behavior changes.

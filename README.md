@@ -16,18 +16,23 @@ Converter and CLI are available.
 
 None.
 
-## Specs
+## Docs
 
-- Input spec: [docs/input-spec.md](docs/input-spec.md)
-- Output spec: [docs/output-spec.md](docs/output-spec.md)
-- CLI JSON schema: [docs/cli-output.schema.json](docs/cli-output.schema.json)
+- [Input specification](docs/input-spec.md)
+- [Output specification](docs/output-spec.md)
+- [CLI JSON schema](docs/cli-output.schema.json)
+- [CHANGELOG](CHANGELOG.md)
+- [CONTRIBUTING](CONTRIBUTING.md)
+- [CODE_OF_CONDUCT](CODE_OF_CONDUCT.md)
+- [SECURITY](SECURITY.md)
+- [LICENSE](LICENSE)
 
 ## Agent rules (AGENTS.md)
 
 This repository uses composed agent rules.
 
 - Source modules live in:
-  - [agent-rules/](agent-rules/) (git submodule)
+  - [metyatech/agent-rules](https://github.com/metyatech/agent-rules) (remote source)
   - [agent-rules-local/](agent-rules-local/) (project-specific additions)
 - The ruleset is defined in [agent-ruleset.json](agent-ruleset.json).
 - Generate/update `AGENTS.md` from the project root:
@@ -67,7 +72,7 @@ python -m ruff format .
 #### Type check
 
 ```sh
-pyright src
+python -m pyright
 ```
 
 #### Tests
@@ -79,7 +84,7 @@ python -m unittest discover -s tests
 #### Security audit
 
 ```sh
-python -m pip_audit -r requirements-dev.txt
+python -m pip_audit -r requirements-dev.txt -s osv
 ```
 
 ## Usage
@@ -144,7 +149,7 @@ Breaking changes include (but are not limited to):
 
 1. Update `CHANGELOG.md` with a new version section and migration notes for breaking changes.
 2. Update `src/tracklms_to_qti_results/version.py`.
-3. Run `python -m pip_audit -r requirements-dev.txt` and address critical issues.
+3. Run `python -m pip_audit -r requirements-dev.txt -s osv` and address critical issues.
 4. Run `python -m build`.
 5. Run `python -m twine check dist/*`.
 6. Tag the release (example: `v1.2.3`) and push the tag.

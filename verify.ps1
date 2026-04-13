@@ -10,12 +10,12 @@ Write-Output "--- Running Ruff format check ---"
 python -m ruff format --check .
 
 Write-Output "--- Running Pyright type check ---"
-pyright src
+pyright
 
 Write-Output "--- Running tests ---"
 python -m unittest discover -s tests
 
 Write-Output "--- Running security audit ---"
-python -m pip_audit -r requirements-dev.txt
+python -m pip_audit -r requirements-dev.txt -s osv
 
 Write-Output "`nVerification PASSED"

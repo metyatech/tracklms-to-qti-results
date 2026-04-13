@@ -47,7 +47,8 @@ select = ["E", "F", "I", "UP"]
 per-file-ignores = { "run_cli.py" = ["E402"], "tests/*" = ["E402"] }
 
 [tool.pyright]
-include = ["src"]
+include = ["src", "tests"]
 typeCheckingMode = "strict"
 pythonVersion = "3.11"
+reportMissingImports = true
 reportMissingTypeStubs = false
