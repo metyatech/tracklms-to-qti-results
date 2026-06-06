@@ -437,7 +437,7 @@ function detectQuestionType(correct: string | undefined, answer: string | undefi
   }
   PLACEHOLDER_PATTERN.lastIndex = 0;
   if (!correct) return "descriptive";
-  if (isNumeric(correct) && isNumeric(answer)) return "choice";
+  if (isNumeric(correct) && (answer === undefined || isNumeric(answer))) return "choice";
   throw new ConversionError("Invalid question format.");
 }
 

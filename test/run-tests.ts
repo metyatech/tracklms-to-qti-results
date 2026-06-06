@@ -122,6 +122,19 @@ function testMultipleQuestionTypes(): void {
   assert.match(xml, /<value>\/B\/<\/value>/u);
 }
 
+function testUnansweredChoice(): void {
+  const xml = convertCsvTextToQtiResults(
+    buildCsv({
+      "q1/title": "choice-question-1",
+      "q1/correct": "2",
+      "q1/answer": "",
+      "q1/score": "0",
+    }),
+  )[0].xml;
+  assert.match(xml, /<correctResponse>\n\s+<value>CHOICE_2<\/value>\n\s+<\/correctResponse>/u);
+  assert.doesNotMatch(xml, /CHOICE_undefined/u);
+}
+
 function testRubricScoring(): void {
   const itemSources = [
     "item-001.qti.xml",
@@ -186,6 +199,7 @@ function testCli(): void {
 testFixtures();
 testValidationAndFilters();
 testMultipleQuestionTypes();
+testUnansweredChoice();
 testRubricScoring();
 testCli();
 
