@@ -1,6 +1,8 @@
 node_modules/
 dist/
 coverage/
+AGENTS.md
+CLAUDE.md
 .mypy_cache/
 .ruff_cache/
 __pycache__/
