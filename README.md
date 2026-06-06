@@ -1,22 +1,79 @@
 # tracklms-to-qti-results
 
-Convert Track LMS exports into QTI 3.0 Results Reporting artifacts.
+Convert Track LMS CSV exports into QTI 3.0 Results Reporting XML.
 
-## Status
+## Compatibility
 
-Converter and CLI are available.
+- Node.js >= 20.11.0
+- npm
+- Windows, macOS, and Linux
 
 ## Setup
 
-- Python 3.11+
-- Create and activate a virtual environment
-- Install dev tools: `python -m pip install -r requirements-dev.txt`
+```sh
+npm install
+```
 
-## Environment variables
+## CLI usage
 
-None.
+```sh
+tracklms-to-qti-results <input.csv|-> \
+  [--timezone Asia/Tokyo] \
+  [--output <output_dir|->] \
+  [--assessment-test <assessment-test.qti.xml>] \
+  [--only-status <status>] \
+  [--dry-run] \
+  [--json] \
+  [--yes]
+```
 
-## Docs
+Examples:
+
+```sh
+npx @metyatech/tracklms-to-qti-results input.csv --output qti-results
+npx @metyatech/tracklms-to-qti-results input.csv --only-status Completed
+npx @metyatech/tracklms-to-qti-results input.csv --dry-run --json
+npx @metyatech/tracklms-to-qti-results input.csv --output -
+```
+
+### Options
+
+- `<input.csv|->`: Track LMS CSV export path, or `-` to read from stdin.
+- `--timezone <name>`: Timezone for `startAt`/`endAt` conversion. Defaults to `Asia/Tokyo`.
+- `--output`, `--out-dir <dir|->`: Output directory. Defaults to `<input_dir>/qti-results`, or `./qti-results` when reading stdin. Use `-` to emit a single XML document to stdout.
+- `--assessment-test <path>`: QTI assessment test XML for rubric-based scoring.
+- `--only-status <status>`: Include only rows with the specified Track LMS status. Repeat to allow multiple statuses.
+- `--dry-run`: Preview planned outputs without writing files.
+- `--json`: Emit a machine-readable summary to stdout.
+- `--yes`, `--force`: Overwrite existing files without prompting.
+- `--quiet`: Suppress non-error logs.
+- `--verbose`, `-v`: Enable verbose logs.
+- `--trace`: Enable debug logs.
+- `--version`, `-V`: Show version.
+- `--help`, `-h`: Show help.
+
+## Library usage
+
+```ts
+import { readFileSync, writeFileSync } from "node:fs";
+import { convertCsvTextToQtiResults } from "@metyatech/tracklms-to-qti-results";
+
+const csvText = readFileSync("tracklms-export.csv", "utf8");
+const results = convertCsvTextToQtiResults(csvText, { timezone: "Asia/Tokyo" });
+
+for (const result of results) {
+  writeFileSync(`assessmentResult-${result.resultId}.xml`, result.xml, "utf8");
+}
+```
+
+Notes:
+
+- One XML document is produced per input row with an `endAt` value.
+- The timezone option applies to Track LMS `startAt` and `endAt` values.
+- `allowedStatuses` can filter rows programmatically.
+- With `--assessment-test`, rubric outcomes are derived from referenced item sources. Descriptive items set rubric criteria to `false`; choice and cloze items set criteria to `true` when `q{n}/score` is non-zero.
+
+## Documents
 
 - [Input specification](docs/input-spec.md)
 - [Output specification](docs/output-spec.md)
@@ -27,135 +84,37 @@ None.
 - [SECURITY](SECURITY.md)
 - [LICENSE](LICENSE)
 
-## Agent rules (AGENTS.md)
+## Development commands
+
+```sh
+npm run build
+npm test
+npm run lint
+npm run format:check
+npm run typecheck
+npm run verify
+```
+
+## Environment variables
+
+None.
+
+## Release
+
+1. Update `CHANGELOG.md` with the new version section.
+2. Update `package.json` version.
+3. Run `npm install` and `npm run verify`.
+4. Run `npm audit --audit-level=critical`.
+5. Run `npm pack --dry-run` and verify the package contents.
+6. Publish with `npm publish --access public`.
+7. Create and push a matching Git tag, then create a GitHub Release.
+
+## Agent rules
 
 This repository uses composed agent rules.
 
 - Source modules live in:
-  - [metyatech/agent-rules](https://github.com/metyatech/agent-rules) (remote source)
-  - [agent-rules-local/](agent-rules-local/) (project-specific additions)
+  - [metyatech/agent-rules](https://github.com/metyatech/agent-rules)
+  - [agent-rules-local/](agent-rules-local/)
 - The ruleset is defined in [agent-ruleset.json](agent-ruleset.json).
-- Generate/update `AGENTS.md` from the project root:
-
-```sh
-compose-agentsmd
-```
-
-## Tech
-
-- Python + Pydantic
-
-## Development
-
-### Verification
-
-Run the full verification suite (lint, format, type check, tests, audit):
-
-```powershell
-./verify.ps1
-```
-
-### Individual commands
-
-#### Lint
-
-```sh
-python -m ruff check .
-```
-
-#### Format
-
-```sh
-python -m ruff format .
-```
-
-#### Type check
-
-```sh
-python -m pyright
-```
-
-#### Tests
-
-```sh
-python -m unittest discover -s tests
-```
-
-#### Security audit
-
-```sh
-python -m pip_audit -r requirements-dev.txt -s osv
-```
-
-## Usage
-
-```python
-from pathlib import Path
-
-from tracklms_to_qti_results import convert_csv_text_to_qti_results
-
-csv_text = Path("tracklms-export.csv").read_text(encoding="utf-8")
-results = convert_csv_text_to_qti_results(csv_text, timezone="Asia/Tokyo")
-
-for result in results:
-    output_path = Path(f"assessmentResult-{result.result_id}.xml")
-    output_path.write_text(result.xml, encoding="utf-8")
-```
-
-Notes:
-- One XML document is produced per input row (resultId).
-- The timezone parameter applies to startAt/endAt conversion.
-- Use allowed_statuses to include only specific Track LMS statuses.
-
-## CLI
-
-```sh
-python run_cli.py <input.csv|-> \
-  [--timezone Asia/Tokyo] \
-  [--output <output_dir|->] \
-  [--assessment-test <assessment-test.qti.xml>] \
-  [--only-status <status>] \
-  [--dry-run] \
-  [--json] \
-  [--yes]
-```
-
-Notes:
-- Run from the repository root; `run_cli.py` bootstraps `src/` automatically.
-- If your environment allows, `python -m tracklms_to_qti_results ...` also works.
-- Use `-` instead of a file path to read CSV data from stdin.
-- If `--output`/`--out-dir` is omitted, outputs go to `<input_dir>/qti-results` (or `./qti-results` when reading stdin).
-- Use `--output -` to emit a single XML document to stdout.
-- Use `--dry-run` to preview planned outputs without writing files.
-- Use `--json` to emit a machine-readable summary to stdout.
-- Use `--yes`/`--force` to overwrite existing files without prompting.
-- Output files are written as `assessmentResult-<resultId>.xml`.
-- Use `--assessment-test <path>` to include rubric-based scoring results.
-  - Descriptive items set all rubric criteria to false.
-  - Choice and fill-in-the-blank items set all criteria to true when q{n}/score is non-zero.
-  - itemResult identifiers follow the assessment test item order.
-- Use `--only-status` multiple times to include multiple statuses (example: `--only-status Completed --only-status DeadlineExpired`).
-
-## Versioning
-
-This project follows Semantic Versioning.
-
-Breaking changes include (but are not limited to):
-- Changes to CLI flags or defaults that alter outputs or behavior.
-- Changes to input/output formats or required columns.
-- Changes to public Python API signatures or return types.
-
-## Release
-
-1. Update `CHANGELOG.md` with a new version section and migration notes for breaking changes.
-2. Update `src/tracklms_to_qti_results/version.py`.
-3. Run `python -m pip_audit -r requirements-dev.txt -s osv` and address critical issues.
-4. Run `python -m build`.
-5. Run `python -m twine check dist/*`.
-6. Tag the release (example: `v1.2.3`) and push the tag.
-7. Create a GitHub Release with notes based on `CHANGELOG.md`.
-8. Publish to PyPI with `python -m twine upload dist/*`.
-
-## Overview
-This repository contains the tracklms-to-qti-results project.
-
+- Generate/update `AGENTS.md` from the project root with `compose-agentsmd`.
