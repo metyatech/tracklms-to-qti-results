@@ -1,0 +1,75 @@
+{
+  "name": "@metyatech/tracklms-to-qti-results",
+  "version": "0.3.0",
+  "description": "Convert Track LMS exports into QTI 3.0 Results Reporting XML.",
+  "keywords": [
+    "tracklms",
+    "qti",
+    "qti3",
+    "qti-results",
+    "education"
+  ],
+  "license": "MIT",
+  "author": "metyatech",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/metyatech/tracklms-to-qti-results.git"
+  },
+  "homepage": "https://github.com/metyatech/tracklms-to-qti-results#readme",
+  "bugs": {
+    "url": "https://github.com/metyatech/tracklms-to-qti-results/issues"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "tracklms-to-qti-results": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "tsx test/run-tests.ts",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build",
+    "tracklms-to-qti-results": "tsx src/cli.ts",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run verify"
+  },
+  "dependencies": {
+    "csv-parse": "^5.5.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.1",
+    "tsx": "^4.7.1",
+    "typescript": "^5.4.5",
+    "typescript-eslint": "^8.54.0"
+  },
+  "overrides": {
+    "ajv": "^6.14.0",
+    "minimatch": "^10.2.1"
+  }
+}
