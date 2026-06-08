@@ -1,6 +1,6 @@
 {
   "name": "@metyatech/tracklms-to-qti-results",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Convert Track LMS exports into QTI 3.0 Results Reporting XML.",
   "keywords": [
     "tracklms",

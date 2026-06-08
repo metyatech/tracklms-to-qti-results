@@ -279,7 +279,7 @@ function testCli(): void {
 
     const version = runCli(["--version"]);
     assert.equal(version.status, 0, version.stderr);
-    assert.match(version.stdout, /0\.3\.0/u);
+    assert.match(version.stdout, /0\.4\.0/u);
 
     const assessmentTestPath = writeCustomAssessmentTest(tempDir);
     writeFileSync(

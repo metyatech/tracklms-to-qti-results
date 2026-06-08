@@ -6,6 +6,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## Unreleased
 
+## 0.4.0 - 2026-06-08
+
+### Changed
+
+- With `--assessment-test`, choice responses now resolve to the referenced QTI item's actual `qti-simple-choice/@identifier` values, treating Track LMS choice numbers as 0-based indexes. Out-of-range, missing, or duplicate identifiers now fail instead of emitting `CHOICE_{n}` placeholders. Without `--assessment-test`, the legacy `CHOICE_{index}` fallback is unchanged.
+- Automated npm publishing via GitHub Actions using npm Trusted Publishing (OIDC); releases are triggered by pushing a `v*` tag whose version matches `package.json`.
+
 ## 0.3.0 - 2026-06-06
 
 ### Changed
