@@ -1,5 +1,10 @@
 <qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-002" title="item-002">
   <qti-item-body>
+    <qti-choice-interaction response-identifier="RESPONSE" max-choices="1">
+      <qti-simple-choice identifier="CHOICE_0">Choice 0</qti-simple-choice>
+      <qti-simple-choice identifier="CHOICE_1">Choice 1</qti-simple-choice>
+      <qti-simple-choice identifier="CHOICE_2">Choice 2</qti-simple-choice>
+    </qti-choice-interaction>
     <qti-rubric-block view="scorer">
       <qti-p>[2] Criterion A</qti-p>
       <qti-p>[1] Criterion B</qti-p>

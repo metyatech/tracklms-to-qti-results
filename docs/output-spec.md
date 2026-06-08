@@ -159,9 +159,13 @@ Question type is determined by the q{n}/correct and q{n}/answer fields:
 - condition: q{n}/correct and q{n}/answer are numeric
 - baseType: identifier
 - cardinality: single
-- correctResponse: CHOICE_{index}
-- candidateResponse: CHOICE_{index}
-- index: the numeric value as provided by Track LMS
+- correctResponse: the selected choice identifier
+- candidateResponse: the selected choice identifier
+- index: the 0-based numeric value as provided by Track LMS
+- when a QTI assessment test is provided, the index is resolved against the
+  matching item's `qti-simple-choice/@identifier` values in document order
+- when no QTI assessment test is provided, the legacy fallback remains
+  CHOICE_{index}
 
 3) Fill-in-the-blank
 - condition: q{n}/correct includes one or more ${...} placeholders
@@ -176,6 +180,11 @@ When a QTI assessment test is provided, the converter emits rubric outcomes and
 recalculates item/test scores based on the rubric format
 (`qti-rubric-block view="scorer"` with `[<points>] <criterion>` lines). Item
 files are resolved from the assessment test item references.
+
+For choice questions, those same item files are also the source of truth for
+response identifiers. Track LMS choice numbers are 0-based indexes into the
+matching item's `qti-simple-choice` elements; out-of-range indexes fail the
+conversion instead of inventing an identifier.
 
 ### Rubric outcome variables
 For each rubric criterion, an outcome variable is added under the matching

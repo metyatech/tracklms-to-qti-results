@@ -72,6 +72,9 @@ Notes:
 - The timezone option applies to Track LMS `startAt` and `endAt` values.
 - `allowedStatuses` can filter rows programmatically.
 - With `--assessment-test`, rubric outcomes are derived from referenced item sources. Descriptive items set rubric criteria to `false`; choice and cloze items set criteria to `true` when `q{n}/score` is non-zero.
+- With `--assessment-test`, choice responses use the referenced QTI item's actual
+  `qti-simple-choice/@identifier` values. Track LMS choice numbers are treated as
+  0-based indexes into those choices.
 
 ## Documents
 

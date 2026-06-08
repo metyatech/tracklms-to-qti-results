@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -135,6 +135,95 @@ function testUnansweredChoice(): void {
   assert.doesNotMatch(xml, /CHOICE_undefined/u);
 }
 
+function customChoiceItemSource(): string {
+  return `<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-005" title="item-005">
+  <qti-item-body>
+    <qti-choice-interaction response-identifier="RESPONSE" max-choices="1">
+      <qti-simple-choice identifier="choice-a">Option A</qti-simple-choice>
+      <qti-simple-choice identifier="choice-b">Option B</qti-simple-choice>
+      <qti-simple-choice identifier="choice-c">Option C</qti-simple-choice>
+    </qti-choice-interaction>
+    <qti-rubric-block view="scorer">
+      <qti-p>[1] Criterion A</qti-p>
+    </qti-rubric-block>
+  </qti-item-body>
+</qti-assessment-item>`;
+}
+
+function customChoiceItemSources(): string[] {
+  return [customChoiceItemSource(), "item-002.qti.xml", "item-003.qti.xml", "item-004.qti.xml"].map(
+    (source) =>
+      source.endsWith(".qti.xml")
+        ? readFileSync(path.join(fixtureDir, "items", source), "utf8")
+        : source,
+  );
+}
+
+function testChoiceIdentifiersFromItemSource(): void {
+  const xml = convertCsvTextToQtiResults(
+    buildCsv({
+      "q1/title": "choice-question-1",
+      "q1/correct": "1",
+      "q1/answer": "0",
+      "q1/score": "0",
+    }),
+    {
+      itemSourceXmls: customChoiceItemSources(),
+      assessmentTestItemIdentifiers: ["item-005", "item-002", "item-003", "item-004"],
+    },
+  )[0].xml;
+  assert.match(xml, /<correctResponse>\n\s+<value>choice-b<\/value>\n\s+<\/correctResponse>/u);
+  assert.match(xml, /<candidateResponse>\n\s+<value>choice-a<\/value>\n\s+<\/candidateResponse>/u);
+  assert.doesNotMatch(xml, /CHOICE_/u);
+}
+
+function testChoiceIdentifierOutOfRange(): void {
+  assert.throws(
+    () =>
+      convertCsvTextToQtiResults(
+        buildCsv({
+          "q1/title": "choice-question-1",
+          "q1/correct": "3",
+          "q1/answer": "0",
+          "q1/score": "0",
+        }),
+        {
+          itemSourceXmls: customChoiceItemSources(),
+          assessmentTestItemIdentifiers: ["item-005", "item-002", "item-003", "item-004"],
+        },
+      ),
+    ConversionError,
+  );
+}
+
+function writeCustomAssessmentTest(tempDir: string): string {
+  const itemsDir = path.join(tempDir, "items");
+  mkdirSync(itemsDir, { recursive: true });
+  writeFileSync(
+    path.join(tempDir, "assessment-test.qti.xml"),
+    `<qti-assessment-test xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="assessment-test" title="Assessment Test">
+  <qti-test-part identifier="part-1" navigation-mode="linear" submission-mode="individual">
+    <qti-assessment-section identifier="section-1" title="Section 1" visible="true">
+      <qti-assessment-item-ref identifier="item-005" href="items/item-005.qti.xml" />
+      <qti-assessment-item-ref identifier="item-002" href="items/item-002.qti.xml" />
+      <qti-assessment-item-ref identifier="item-003" href="items/item-003.qti.xml" />
+      <qti-assessment-item-ref identifier="item-004" href="items/item-004.qti.xml" />
+    </qti-assessment-section>
+  </qti-test-part>
+</qti-assessment-test>`,
+    "utf8",
+  );
+  writeFileSync(path.join(itemsDir, "item-005.qti.xml"), customChoiceItemSource(), "utf8");
+  for (const name of ["item-002.qti.xml", "item-003.qti.xml", "item-004.qti.xml"]) {
+    writeFileSync(
+      path.join(itemsDir, name),
+      readFileSync(path.join(fixtureDir, "items", name), "utf8"),
+      "utf8",
+    );
+  }
+  return path.join(tempDir, "assessment-test.qti.xml");
+}
+
 function testRubricScoring(): void {
   const itemSources = [
     "item-001.qti.xml",
@@ -191,6 +280,36 @@ function testCli(): void {
     const version = runCli(["--version"]);
     assert.equal(version.status, 0, version.stderr);
     assert.match(version.stdout, /0\.3\.0/u);
+
+    const assessmentTestPath = writeCustomAssessmentTest(tempDir);
+    writeFileSync(
+      csvPath,
+      buildCsv({
+        "q1/title": "choice-question-1",
+        "q1/correct": "1",
+        "q1/answer": "0",
+        "q1/score": "0",
+      }),
+      "utf8",
+    );
+    const assessmentResult = runCli([
+      csvPath,
+      "--out-dir",
+      outDir,
+      "--assessment-test",
+      assessmentTestPath,
+      "--yes",
+    ]);
+    assert.equal(assessmentResult.status, 0, assessmentResult.stderr);
+    const assessmentXml = readFileSync(path.join(outDir, "assessmentResult-200.xml"), "utf8");
+    assert.match(
+      assessmentXml,
+      /<correctResponse>\n\s+<value>choice-b<\/value>\n\s+<\/correctResponse>/u,
+    );
+    assert.match(
+      assessmentXml,
+      /<candidateResponse>\n\s+<value>choice-a<\/value>\n\s+<\/candidateResponse>/u,
+    );
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
@@ -200,6 +319,8 @@ testFixtures();
 testValidationAndFilters();
 testMultipleQuestionTypes();
 testUnansweredChoice();
+testChoiceIdentifiersFromItemSource();
+testChoiceIdentifierOutOfRange();
 testRubricScoring();
 testCli();
 

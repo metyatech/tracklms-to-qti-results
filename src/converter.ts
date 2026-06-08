@@ -31,6 +31,11 @@ type Rubric = {
   scaleDigits: number;
 };
 
+type ItemSource = {
+  choiceIdentifiers: string[];
+  rubric: Rubric;
+};
+
 const QTI_NS = "http://www.imsglobal.org/xsd/imsqti_result_v3p0";
 const ITEM_NS = "http://www.imsglobal.org/xsd/imsqti_v3p0";
 const XSI_NS = "http://www.w3.org/2001/XMLSchema-instance";
@@ -82,10 +87,10 @@ export function convertCsvTextToQtiResults(
   }
 
   const timezone = options.timezone ?? "Asia/Tokyo";
-  const itemRubrics = parseItemRubrics(options.itemSourceXmls);
+  const itemSources = parseItemSources(options.itemSourceXmls);
   const itemIdentifiers = validateItemIdentifiers(
     options.assessmentTestItemIdentifiers,
-    itemRubrics,
+    itemSources,
   );
   const statusFilter = normalizeStatusFilter(options.allowedStatuses);
 
@@ -117,13 +122,13 @@ export function convertCsvTextToQtiResults(
 
     const endAt = formatTimestamp(row.endAt, timezone, "endAt");
     const startAt = row.startAt ? formatTimestamp(row.startAt, timezone, "startAt") : undefined;
-    const itemResults = buildItemResults(row, endAt, questionIndices, itemIdentifiers);
-    const recomputeTestScore = itemRubrics !== undefined;
-    if (itemRubrics !== undefined) {
+    const itemResults = buildItemResults(row, endAt, questionIndices, itemIdentifiers, itemSources);
+    const recomputeTestScore = itemSources !== undefined;
+    if (itemSources !== undefined) {
       applyRubricScoring(
         row,
         itemResults,
-        itemRubrics,
+        itemSources,
         buildIdentifierToQuestionMap(questionIndices, itemIdentifiers),
       );
     }
@@ -289,6 +294,7 @@ function buildItemResults(
   endAt: string,
   questionIndices: readonly number[],
   itemIdentifiers: readonly string[] | undefined,
+  itemSources: Map<string, ItemSource> | undefined,
 ): ItemResult[] {
   const itemResults: ItemResult[] = [];
   questionIndices.forEach((questionIndex, position) => {
@@ -302,6 +308,7 @@ function buildItemResults(
 
     const identifier = itemIdentifiers ? itemIdentifiers[position] : `Q${questionIndex}`;
     const sequenceIndex = itemIdentifiers ? String(position + 1) : String(questionIndex);
+    const itemSource = itemSources?.get(identifier);
     const questionType = detectQuestionType(correct, answer);
     const responseVariables: ResponseVariable[] = [];
     if (questionType === "descriptive") {
@@ -312,12 +319,24 @@ function buildItemResults(
         candidateValues: maybeList(answer),
       });
     } else if (questionType === "choice") {
+      const correctChoice = requireString(correct, `q${questionIndex}/correct`);
+      const correctValue = resolveChoiceIdentifier(
+        correctChoice,
+        itemSource,
+        identifier,
+        questionIndex,
+        "correct",
+      );
+      const answerValue =
+        answer === undefined
+          ? undefined
+          : resolveChoiceIdentifier(answer, itemSource, identifier, questionIndex, "answer");
       responseVariables.push({
         identifier: "RESPONSE",
         baseType: "identifier",
         cardinality: "single",
-        correctValues: [`CHOICE_${correct}`],
-        candidateValues: maybeList(answer === undefined ? undefined : `CHOICE_${answer}`),
+        correctValues: [correctValue],
+        candidateValues: maybeList(answerValue),
       });
     } else {
       responseVariables.push({
@@ -342,20 +361,39 @@ function buildItemResults(
   return itemResults;
 }
 
+function resolveChoiceIdentifier(
+  trackValue: string,
+  itemSource: ItemSource | undefined,
+  itemIdentifier: string,
+  questionIndex: number,
+  fieldName: "answer" | "correct",
+): string {
+  if (itemSource === undefined) return `CHOICE_${trackValue}`;
+  const index = parseIntField(trackValue, `q${questionIndex}/${fieldName}`);
+  const choiceIdentifier = itemSource.choiceIdentifiers[index];
+  if (choiceIdentifier === undefined) {
+    throw new ConversionError(
+      `Choice index out of range for item ${itemIdentifier} q${questionIndex}/${fieldName}: ${trackValue}`,
+    );
+  }
+  return choiceIdentifier;
+}
+
 function applyRubricScoring(
   row: TrackLmsRow,
   itemResults: ItemResult[],
-  itemRubrics: Map<string, Rubric>,
+  itemSources: Map<string, ItemSource>,
   identifierToQuestion: Map<string, number>,
 ): void {
   if (itemResults.length === 0) {
     throw new ConversionError("itemResult not found for scoring update.");
   }
   for (const itemResult of itemResults) {
-    const rubric = itemRubrics.get(itemResult.identifier);
-    if (rubric === undefined) {
+    const itemSource = itemSources.get(itemResult.identifier);
+    if (itemSource === undefined) {
       throw new ConversionError(`Scoring source not found for item: ${itemResult.identifier}`);
     }
+    const rubric = itemSource.rubric;
     const questionIndex = identifierToQuestion.get(itemResult.identifier);
     if (questionIndex === undefined) {
       throw new ConversionError(`Missing question mapping for item: ${itemResult.identifier}`);
@@ -515,26 +553,29 @@ function requireString(value: string | undefined, fieldName: string): string {
   return value;
 }
 
-function parseItemRubrics(
+function parseItemSources(
   itemSourceXmls: Iterable<string> | undefined,
-): Map<string, Rubric> | undefined {
+): Map<string, ItemSource> | undefined {
   if (itemSourceXmls === undefined) return undefined;
-  const rubrics = new Map<string, Rubric>();
+  const itemSources = new Map<string, ItemSource>();
   for (const xml of itemSourceXmls) {
     const identifier = extractRootIdentifier(xml, "qti-assessment-item", "item source");
-    if (rubrics.has(identifier)) {
+    if (itemSources.has(identifier)) {
       throw new ConversionError(`Duplicate item identifier in sources: ${identifier}`);
     }
-    rubrics.set(identifier, extractRubric(xml, identifier));
+    itemSources.set(identifier, {
+      choiceIdentifiers: extractChoiceIdentifiers(xml, identifier),
+      rubric: extractRubric(xml, identifier),
+    });
   }
-  return rubrics;
+  return itemSources;
 }
 
 function validateItemIdentifiers(
   identifiers: string[] | undefined,
-  itemRubrics: Map<string, Rubric> | undefined,
+  itemSources: Map<string, ItemSource> | undefined,
 ): string[] | undefined {
-  if (itemRubrics === undefined) return identifiers;
+  if (itemSources === undefined) return identifiers;
   if (!identifiers || identifiers.length === 0) {
     throw new ConversionError(
       "Assessment test item identifiers are required when item sources are provided.",
@@ -547,7 +588,7 @@ function validateItemIdentifiers(
     throw new ConversionError("Assessment test item identifiers must be unique.");
   }
   for (const identifier of identifiers) {
-    if (!itemRubrics.has(identifier)) {
+    if (!itemSources.has(identifier)) {
       throw new ConversionError(`Assessment test item not found in sources: ${identifier}`);
     }
   }
@@ -598,6 +639,23 @@ function extractRubric(xml: string, identifier: string): Rubric {
     criteria.push({ points, text: criterionText });
   });
   return { criteria, scaleDigits };
+}
+
+function extractChoiceIdentifiers(xml: string, itemIdentifier: string): string[] {
+  const choiceMatches = [...xml.matchAll(/<qti-simple-choice\b([^>]*)>/gu)];
+  const identifiers = choiceMatches.map((choiceMatch, index) => {
+    const identifier = extractAttribute(choiceMatch[1], "identifier");
+    if (identifier === undefined) {
+      throw new ConversionError(
+        `Missing choice identifier at index ${index} for item: ${itemIdentifier}`,
+      );
+    }
+    return identifier;
+  });
+  if (new Set(identifiers).size !== identifiers.length) {
+    throw new ConversionError(`Duplicate choice identifier in item: ${itemIdentifier}`);
+  }
+  return identifiers;
 }
 
 function criteriaAllMet(
