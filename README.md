@@ -104,13 +104,21 @@ None.
 
 ## Release
 
+Publishing is automated by the [`Release`](.github/workflows/release.yml) GitHub
+Actions workflow using npm [Trusted Publishing](https://docs.npmjs.com/trusted-publishers)
+(OIDC). No npm tokens are stored in the repository.
+
 1. Update `CHANGELOG.md` with the new version section.
 2. Update `package.json` version.
 3. Run `npm install` and `npm run verify`.
-4. Run `npm audit --audit-level=critical`.
-5. Run `npm pack --dry-run` and verify the package contents.
-6. Publish with `npm publish --access public`.
-7. Create and push a matching Git tag, then create a GitHub Release.
+4. Commit the changes and push to `main`.
+5. Create and push a matching `v<version>` tag (for example `git tag v0.4.0 && git push origin v0.4.0`).
+6. The `Release` workflow runs verification, confirms the tag matches `package.json`, and publishes to npm.
+7. Create a GitHub Release for the tag.
+
+The npm package's Trusted Publisher must be configured to allow the
+`metyatech/tracklms-to-qti-results` repository's `.github/workflows/release.yml`
+workflow before the first automated publish.
 
 ## Agent rules
 
