@@ -17,7 +17,7 @@
 | classId                  | integer  | yes      | Track LMS class identifier.                                                    |
 | className                | string   | yes      | Class title as displayed in Track LMS.                                         |
 | traineeId                | integer  | yes      | Trainee identifier.                                                            |
-| account                  | string   | yes      | Trainee account (typically email).                                             |
+| account                  | string   | yes      | Trainee Track account. Required. After leading/trailing whitespace is trimmed, must match the regular expression `^siw(\d{8})@class\.siw\.ac\.jp$/i` (case-insensitive for the letters and the domain). The captured 8-digit group is the student number used as the candidate identifier. A row whose `account` does not match is a conversion error; there is no fallback to `traineeId` or `resultId`. |
 | traineeName              | string   | yes      | Trainee display name.                                                          |
 | traineeKlassId           | integer  | yes      | Track LMS trainee class identifier.                                            |
 | matrerialId              | integer  | yes      | Material identifier. Note: column name is spelled "matrerialId" in the export. |
@@ -81,6 +81,18 @@ Each question is one of the following types:
 - Boolean values are represented as true/false.
 - Timestamps are provided without timezone. The conversion layer must apply a configured timezone
   when emitting ISO 8601 timestamps in the output.
+
+### `account`
+- Required.
+- The cell value is trimmed of leading/trailing whitespace before validation; an empty
+  (or whitespace-only) cell is treated as missing and is a conversion error.
+- After trimming, the value must match the regular expression
+  `^siw(\d{8})@class\.siw\.ac\.jp$/i`. Letters and the domain are matched
+  case-insensitively; the 8-digit student number must be exactly 8 digits.
+- The 8-digit group captured by the regex is the student number used as the
+  candidate identifier in the QTI output.
+- Any value that does not match the regex is a conversion error. There is no
+  fallback to `traineeId` or `resultId`.
 
 ## Known status values
 Track LMS may emit additional status values beyond those listed here. The converter maps known

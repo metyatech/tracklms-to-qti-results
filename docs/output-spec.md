@@ -35,9 +35,15 @@ Attributes:
 ### context
 The context element provides identifiers that describe the session and the learner.
 
-- sourcedId (attribute): the unique candidate identifier (account).
+- sourcedId (attribute): the 8-digit student number extracted from the Track `account`
+  column (the captured group from `^siw(\d{8})@class\.siw\.ac\.jp$/i`).
 - sessionIdentifier: repeatable identifiers using common sourceID keys for class,
   candidate, and material metadata.
+  - `candidateId`: the 8-digit student number extracted from Track `account`.
+  - `candidateAccount`: the original Track `account` value (verbatim).
+  - `trackTraineeId`: the original Track `traineeId` value.
+  - `trackTraineeClassId`: the original Track `traineeKlassId` value.
+  - `trackResultId`: the original Track `resultId` value.
 
 ### testResult
 The testResult element represents the assessment attempt.
@@ -107,18 +113,19 @@ Known Track LMS status values observed in inputs:
 ### Context identifiers
 | Track LMS column      | Output location                                                                  | Notes                               |
 | --------------------- | -------------------------------------------------------------------------------- | ----------------------------------- |
-| account               | context/@sourcedId                                                               | Candidate identifier (8-digit student number).       |
+| account               | context/@sourcedId                                                               | 8桁学生番号 (`account` から抽出した学生番号)。 |
+| account               | context/sessionIdentifier (sourceID = candidateId, identifier = value)          | 8-digit student number extracted from the Track `account` column. |
+| account               | context/sessionIdentifier (sourceID = candidateAccount, identifier = value)      | Original Track `account` value.     |
 | classId               | context/sessionIdentifier (sourceID = classId, identifier = value)               | String value.                       |
 | className             | context/sessionIdentifier (sourceID = className, identifier = value)             | String value.                       |
-| traineeId             | context/sessionIdentifier (sourceID = trackTraineeId, identifier = value)           | String value.                       |
-| account               | context/sessionIdentifier (sourceID = candidateAccount, identifier = value)      | String value.                       |
+| traineeId             | context/sessionIdentifier (sourceID = trackTraineeId, identifier = value)        | Original Track `traineeId` value.   |
 | traineeName           | context/sessionIdentifier (sourceID = candidateName, identifier = value)         | String value.                       |
-| traineeKlassId        | context/sessionIdentifier (sourceID = trackTraineeClassId, identifier = value)      | String value.                       |
+| traineeKlassId        | context/sessionIdentifier (sourceID = trackTraineeClassId, identifier = value)    | Original Track `traineeKlassId` value. |
 | matrerialId           | context/sessionIdentifier (sourceID = materialId, identifier = value)            | String value.                       |
 | materialTitle         | context/sessionIdentifier (sourceID = materialTitle, identifier = value)         | Unified title.                      |
 | materialType          | context/sessionIdentifier (sourceID = materialType, identifier = value)          | String value.                       |
 | MaterialVersionNumber | context/sessionIdentifier (sourceID = materialVersionNumber, identifier = value) | String value (note capitalization). |
-| resultId              | context/sessionIdentifier (sourceID = trackResultId, identifier = value)              | Attempt identifier.                 |
+| resultId              | context/sessionIdentifier (sourceID = trackResultId, identifier = value)         | Original Track `resultId` value (attempt identifier). |
 
 ### Test-level variables
 | Track LMS column         | Output element        | Identifier                  | baseType   | Notes                             |
@@ -220,8 +227,11 @@ See the test case fixtures in [tests/fixtures/README.md](../tests/fixtures/READM
 - Fill-in-the-blank: [tests/fixtures/cloze.csv](../tests/fixtures/cloze.csv), [tests/fixtures/cloze.qti.xml](../tests/fixtures/cloze.qti.xml)
 
 ## Output file naming
-- One file per studentNumber.
-- File name: assessmentResult-<studentNumber>.xml
+- One file per output-eligible input row.
+- File name: `assessmentResult-<studentNumber>.xml`, where `<studentNumber>` is the
+  8-digit student number extracted from the Track `account` column
+  (the captured group from `^siw(\d{8})@class\.siw\.ac\.jp$/i`).
+- Example: `assessmentResult-25020008.xml`.
 
 ## CLI JSON output
 When `--json` is supplied, the CLI emits a machine-readable summary to stdout.

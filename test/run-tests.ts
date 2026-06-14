@@ -106,11 +106,17 @@ function testValidationAndFilters(): void {
   )[0];
   assert.match(caseInsensitive.xml, /<context sourcedId="87654321">/u);
 
-  // Duplicates
+  // Duplicates (rows 2 and 3 — converter rows, header counted as row 1)
   const duplicateCsv =
-    buildCsv({ account: "siw11111111@class.siw.ac.jp" }) +
-    buildCsv({ account: "siw11111111@class.siw.ac.jp" }).split("\r\n")[1];
-  assert.throws(() => convertCsvTextToQtiResults(duplicateCsv), ConversionError);
+    buildCsv({ account: "siw25020008@class.siw.ac.jp" }) +
+    buildCsv({ account: "siw25020008@class.siw.ac.jp" }).split("\r\n")[1];
+  assert.throws(
+    () => convertCsvTextToQtiResults(duplicateCsv),
+    (err: unknown) =>
+      err instanceof ConversionError &&
+      err.message ===
+        "Duplicate student number derived from Track accounts: 25020008 (rows 2 and 3).",
+  );
 
   assert.equal(convertCsvTextToQtiResults(buildCsv({ endAt: "" })).length, 0);
   const filtered = convertCsvTextToQtiResults(buildCsv({ status: "InProgress" }), {
@@ -119,6 +125,28 @@ function testValidationAndFilters(): void {
   assert.equal(filtered.length, 0);
   const utc = convertCsvTextToQtiResults(buildCsv({}), { timezone: "UTC" })[0].xml;
   assert.match(utc, /2026-01-02T10:30:00\+00:00/u);
+}
+
+function testDuplicateDetectionExcludesFilteredRows(): void {
+  // Two rows share a student number, but the first is excluded by the status
+  // filter, so the duplicate detection must not fire.
+  const statusExcludedCsv =
+    buildCsv({ account: "siw25020008@class.siw.ac.jp", status: "InProgress" }) +
+    buildCsv({ account: "siw25020008@class.siw.ac.jp" }).split("\r\n")[1];
+  const statusExcludedResults = convertCsvTextToQtiResults(statusExcludedCsv, {
+    allowedStatuses: ["Completed"],
+  });
+  assert.equal(statusExcludedResults.length, 1);
+  assert.equal(statusExcludedResults[0].studentNumber, "25020008");
+
+  // Two rows share a student number, but the first is excluded because it has
+  // no endAt, so the duplicate detection must not fire.
+  const endAtExcludedCsv =
+    buildCsv({ account: "siw25020008@class.siw.ac.jp", endAt: "" }) +
+    buildCsv({ account: "siw25020008@class.siw.ac.jp" }).split("\r\n")[1];
+  const endAtExcludedResults = convertCsvTextToQtiResults(endAtExcludedCsv);
+  assert.equal(endAtExcludedResults.length, 1);
+  assert.equal(endAtExcludedResults[0].studentNumber, "25020008");
 }
 
 function testMultipleQuestionTypes(): void {
@@ -342,6 +370,7 @@ function testCli(): void {
 
 testFixtures();
 testValidationAndFilters();
+testDuplicateDetectionExcludesFilteredRows();
 testMultipleQuestionTypes();
 testUnansweredChoice();
 testChoiceIdentifiersFromItemSource();

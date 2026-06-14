@@ -109,7 +109,7 @@ export function convertCsvTextToQtiResults(
   }
 
   const results: QtiResultDocument[] = [];
-  const seenStudentNumbers = new Set<string>();
+  const seenStudentNumbers = new Map<string, number>();
   let rowIndex = 1; // 1 for header
 
   for (const rawRow of records) {
@@ -126,19 +126,20 @@ export function convertCsvTextToQtiResults(
     }
     const studentNumber = studentNumberMatch[1];
 
-    if (seenStudentNumbers.has(studentNumber)) {
-      throw new ConversionError(
-        `Row ${rowIndex}: Duplicate student number found: ${studentNumber} from account ${account}`,
-      );
-    }
-    seenStudentNumbers.add(studentNumber);
-
     if (statusFilter !== undefined && !statusFilter.has(row.status ?? "")) {
       continue;
     }
     if (row.endAt === undefined) {
       continue;
     }
+
+    const firstSeenRow = seenStudentNumbers.get(studentNumber);
+    if (firstSeenRow !== undefined) {
+      throw new ConversionError(
+        `Duplicate student number derived from Track accounts: ${studentNumber} (rows ${firstSeenRow} and ${rowIndex}).`,
+      );
+    }
+    seenStudentNumbers.set(studentNumber, rowIndex);
 
     const endAt = formatTimestamp(row.endAt, timezone, "endAt");
     const startAt = row.startAt ? formatTimestamp(row.startAt, timezone, "startAt") : undefined;

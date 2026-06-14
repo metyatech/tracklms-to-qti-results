@@ -76,6 +76,19 @@ Notes:
   `qti-simple-choice/@identifier` values. Track LMS choice numbers are treated as
   0-based indexes into those choices.
 
+### Track CSV `account` input condition
+
+- Required on every row.
+- After leading/trailing whitespace is trimmed, the value must match the regular
+  expression `^siw(\d{8})@class\.siw\.ac\.jp$/i`. Letters and the domain are
+  matched case-insensitively; the 8-digit student number must be exactly 8 digits.
+- The 8-digit group is the student number used as the candidate identifier
+  (`context/@sourcedId` and `candidateId`).
+- A row whose `account` does not match the regex is a conversion error; the
+  converter does NOT fall back to `traineeId` or `resultId`.
+- See [Input specification](docs/input-spec.md) and
+  [Output specification](docs/output-spec.md) for the full details.
+
 ## Documents
 
 - [Input specification](docs/input-spec.md)
