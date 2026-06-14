@@ -62,7 +62,7 @@ const csvText = readFileSync("tracklms-export.csv", "utf8");
 const results = convertCsvTextToQtiResults(csvText, { timezone: "Asia/Tokyo" });
 
 for (const result of results) {
-  writeFileSync(`assessmentResult-${result.resultId}.xml`, result.xml, "utf8");
+  writeFileSync(`assessmentResult-${result.studentNumber}.xml`, result.xml, "utf8");
 }
 ```
 

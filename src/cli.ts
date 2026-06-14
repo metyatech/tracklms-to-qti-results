@@ -63,7 +63,7 @@ type AssessmentTest = {
 };
 
 type OutputPlan = {
-  resultId: string;
+  studentNumber: string;
   path?: string;
   target?: string;
   xml?: string;
@@ -245,14 +245,14 @@ function buildOutputPlan(
   return results.map((result) => {
     if (outputTarget === "-") {
       return {
-        resultId: result.resultId,
+        studentNumber: result.studentNumber,
         target: "stdout",
         ...(includeXml ? { xml: result.xml } : {}),
       };
     }
-    const outputPath = path.join(outputTarget, `assessmentResult-${result.resultId}.xml`);
+    const outputPath = path.join(outputTarget, `assessmentResult-${result.studentNumber}.xml`);
     return {
-      resultId: result.resultId,
+      studentNumber: result.studentNumber,
       path: outputPath,
       ...(includeXml ? { xml: result.xml } : {}),
     };

@@ -20,18 +20,18 @@
           {
             "type": "object",
             "additionalProperties": false,
-            "required": ["resultId", "path"],
+            "required": ["studentNumber", "path"],
             "properties": {
-              "resultId": { "type": "string" },
+              "studentNumber": { "type": "string" },
               "path": { "type": "string" }
             }
           },
           {
             "type": "object",
             "additionalProperties": false,
-            "required": ["resultId", "target"],
+            "required": ["studentNumber", "target"],
             "properties": {
-              "resultId": { "type": "string" },
+              "studentNumber": { "type": "string" },
               "target": { "type": "string", "const": "stdout" }
             }
           }

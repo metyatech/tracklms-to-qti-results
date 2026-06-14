@@ -1,7 +1,7 @@
 import { parse as parseCsv } from "csv-parse/sync";
 
 export type QtiResultDocument = {
-  resultId: string;
+  studentNumber: string;
   xml: string;
 };
 
@@ -67,15 +67,15 @@ const REQUIRED_ROW_FIELDS = ["account", "id", "resultId"] as const;
 const CONTEXT_IDENTIFIERS = [
   ["classId", "classId"],
   ["className", "className"],
-  ["traineeId", "candidateId"],
+  ["traineeId", "trackTraineeId"],
   ["account", "candidateAccount"],
   ["traineeName", "candidateName"],
-  ["traineeKlassId", "candidateClassId"],
+  ["traineeKlassId", "trackTraineeClassId"],
   ["matrerialId", "materialId"],
   ["materialTitle", "materialTitle"],
   ["materialType", "materialType"],
   ["MaterialVersionNumber", "materialVersionNumber"],
-  ["resultId", "resultId"],
+  ["resultId", "trackResultId"],
 ] as const;
 
 export function convertCsvTextToQtiResults(
@@ -109,9 +109,29 @@ export function convertCsvTextToQtiResults(
   }
 
   const results: QtiResultDocument[] = [];
+  const seenStudentNumbers = new Set<string>();
+  let rowIndex = 1; // 1 for header
+
   for (const rawRow of records) {
+    rowIndex++;
     const row = normalizeRow(rawRow);
-    ensureRequiredRowFields(row);
+    ensureRequiredRowFields(row, rowIndex);
+
+    const account = row.account ?? "";
+    const studentNumberMatch = /^siw(\d{8})@class\.siw\.ac\.jp$/i.exec(account);
+    if (!studentNumberMatch) {
+      throw new ConversionError(
+        `Row ${rowIndex}: Invalid account format: ${account}. Expected format: siw<8-digits>@class.siw.ac.jp`,
+      );
+    }
+    const studentNumber = studentNumberMatch[1];
+
+    if (seenStudentNumbers.has(studentNumber)) {
+      throw new ConversionError(
+        `Row ${rowIndex}: Duplicate student number found: ${studentNumber} from account ${account}`,
+      );
+    }
+    seenStudentNumbers.add(studentNumber);
 
     if (statusFilter !== undefined && !statusFilter.has(row.status ?? "")) {
       continue;
@@ -133,8 +153,8 @@ export function convertCsvTextToQtiResults(
       );
     }
     const testResult = buildTestResult(row, endAt, startAt, itemResults, recomputeTestScore);
-    const xml = serializeAssessmentResult(row, testResult, itemResults);
-    results.push({ resultId: requireString(row.resultId, "resultId"), xml });
+    const xml = serializeAssessmentResult(row, studentNumber, testResult, itemResults);
+    results.push({ studentNumber, xml });
   }
 
   return results;
@@ -165,10 +185,10 @@ function normalizeRow(row: TrackLmsRow): TrackLmsRow {
   return normalized;
 }
 
-function ensureRequiredRowFields(row: TrackLmsRow): void {
+function ensureRequiredRowFields(row: TrackLmsRow, rowIndex: number): void {
   for (const field of REQUIRED_ROW_FIELDS) {
     if (!row[field]) {
-      throw new ConversionError(`Row validation failed: missing ${field}`);
+      throw new ConversionError(`Row ${rowIndex}: validation failed: missing ${field}`);
     }
   }
 }
@@ -714,6 +734,7 @@ function buildIdentifierToQuestionMap(
 
 function serializeAssessmentResult(
   row: TrackLmsRow,
+  studentNumber: string,
   testResult: TestResult,
   itemResults: ItemResult[],
 ): string {
@@ -722,7 +743,10 @@ function serializeAssessmentResult(
   lines.push(`  xmlns="${QTI_NS}"`);
   lines.push(`  xmlns:xsi="${XSI_NS}"`);
   lines.push(`  xsi:schemaLocation="${SCHEMA_LOCATION}">`);
-  lines.push(`  <context sourcedId="${escapeXml(requireString(row.account, "account"))}">`);
+  lines.push(`  <context sourcedId="${escapeXml(studentNumber)}">`);
+  lines.push(
+    `    <sessionIdentifier sourceID="candidateId" identifier="${escapeXml(studentNumber)}" />`,
+  );
   for (const [sourceField, sourceId] of CONTEXT_IDENTIFIERS) {
     const value = row[sourceField];
     if (value !== undefined) {

@@ -6,6 +6,15 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## Unreleased
 
+## 0.5.0 - 2026-06-14
+
+### Changed
+
+- Use the 8-digit student number extracted from the Track account email as the canonical candidate identifier instead of Track internal IDs.
+- Output filenames now use the student number (`assessmentResult-<studentNumber>.xml`).
+- Track LMS internal IDs are now saved as `trackTraineeId`, `trackTraineeClassId`, and `trackResultId` in the QTI context.
+- The CLI JSON output now uses `studentNumber` instead of `resultId`.
+
 ## 0.4.0 - 2026-06-08
 
 ### Changed

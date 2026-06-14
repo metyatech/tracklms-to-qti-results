@@ -31,7 +31,7 @@ function buildCsv(overrides: Record<string, string>): string {
     classId: "1",
     className: "Sample Class",
     traineeId: "2",
-    account: "sample.user@example.com",
+    account: "siw12345678@class.siw.ac.jp",
     traineeName: "Sample User",
     traineeKlassId: "3",
     matrerialId: "4",
@@ -87,6 +87,31 @@ function testFixtures(): void {
 
 function testValidationAndFilters(): void {
   assert.throws(() => convertCsvTextToQtiResults(buildCsv({ account: "" })), ConversionError);
+  assert.throws(
+    () => convertCsvTextToQtiResults(buildCsv({ account: "invalid@example.com" })),
+    ConversionError,
+  );
+  assert.throws(
+    () => convertCsvTextToQtiResults(buildCsv({ account: "siw1234567@class.siw.ac.jp" })),
+    ConversionError,
+  ); // 7 digits
+  assert.throws(
+    () => convertCsvTextToQtiResults(buildCsv({ account: "siw123456789@class.siw.ac.jp" })),
+    ConversionError,
+  ); // 9 digits
+
+  // Case insensitivity and whitespace
+  const caseInsensitive = convertCsvTextToQtiResults(
+    buildCsv({ account: " SIW87654321@CLASS.SIW.AC.JP " }),
+  )[0];
+  assert.match(caseInsensitive.xml, /<context sourcedId="87654321">/u);
+
+  // Duplicates
+  const duplicateCsv =
+    buildCsv({ account: "siw11111111@class.siw.ac.jp" }) +
+    buildCsv({ account: "siw11111111@class.siw.ac.jp" }).split("\r\n")[1];
+  assert.throws(() => convertCsvTextToQtiResults(duplicateCsv), ConversionError);
+
   assert.equal(convertCsvTextToQtiResults(buildCsv({ endAt: "" })).length, 0);
   const filtered = convertCsvTextToQtiResults(buildCsv({ status: "InProgress" }), {
     allowedStatuses: ["Completed"],
@@ -265,7 +290,7 @@ function testCli(): void {
     const result = runCli([csvPath, "--out-dir", outDir]);
     assert.equal(result.status, 0, result.stderr);
     assert.equal(
-      normalizedXml(readFileSync(path.join(outDir, "assessmentResult-98765.xml"), "utf8")),
+      normalizedXml(readFileSync(path.join(outDir, "assessmentResult-12345678.xml"), "utf8")),
       normalizedXml(fixture("descriptive.qti.xml")),
     );
 
@@ -279,7 +304,7 @@ function testCli(): void {
 
     const version = runCli(["--version"]);
     assert.equal(version.status, 0, version.stderr);
-    assert.match(version.stdout, /0\.4\.0/u);
+    assert.match(version.stdout, /0\.5\.0/u);
 
     const assessmentTestPath = writeCustomAssessmentTest(tempDir);
     writeFileSync(
@@ -301,7 +326,7 @@ function testCli(): void {
       "--yes",
     ]);
     assert.equal(assessmentResult.status, 0, assessmentResult.stderr);
-    const assessmentXml = readFileSync(path.join(outDir, "assessmentResult-200.xml"), "utf8");
+    const assessmentXml = readFileSync(path.join(outDir, "assessmentResult-12345678.xml"), "utf8");
     assert.match(
       assessmentXml,
       /<correctResponse>\n\s+<value>choice-b<\/value>\n\s+<\/correctResponse>/u,

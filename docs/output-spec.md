@@ -107,18 +107,18 @@ Known Track LMS status values observed in inputs:
 ### Context identifiers
 | Track LMS column      | Output location                                                                  | Notes                               |
 | --------------------- | -------------------------------------------------------------------------------- | ----------------------------------- |
-| account               | context/@sourcedId                                                               | Candidate identifier (email).       |
+| account               | context/@sourcedId                                                               | Candidate identifier (8-digit student number).       |
 | classId               | context/sessionIdentifier (sourceID = classId, identifier = value)               | String value.                       |
 | className             | context/sessionIdentifier (sourceID = className, identifier = value)             | String value.                       |
-| traineeId             | context/sessionIdentifier (sourceID = candidateId, identifier = value)           | String value.                       |
+| traineeId             | context/sessionIdentifier (sourceID = trackTraineeId, identifier = value)           | String value.                       |
 | account               | context/sessionIdentifier (sourceID = candidateAccount, identifier = value)      | String value.                       |
 | traineeName           | context/sessionIdentifier (sourceID = candidateName, identifier = value)         | String value.                       |
-| traineeKlassId        | context/sessionIdentifier (sourceID = candidateClassId, identifier = value)      | String value.                       |
+| traineeKlassId        | context/sessionIdentifier (sourceID = trackTraineeClassId, identifier = value)      | String value.                       |
 | matrerialId           | context/sessionIdentifier (sourceID = materialId, identifier = value)            | String value.                       |
 | materialTitle         | context/sessionIdentifier (sourceID = materialTitle, identifier = value)         | Unified title.                      |
 | materialType          | context/sessionIdentifier (sourceID = materialType, identifier = value)          | String value.                       |
 | MaterialVersionNumber | context/sessionIdentifier (sourceID = materialVersionNumber, identifier = value) | String value (note capitalization). |
-| resultId              | context/sessionIdentifier (sourceID = resultId, identifier = value)              | Attempt identifier.                 |
+| resultId              | context/sessionIdentifier (sourceID = trackResultId, identifier = value)              | Attempt identifier.                 |
 
 ### Test-level variables
 | Track LMS column         | Output element        | Identifier                  | baseType   | Notes                             |
@@ -220,8 +220,8 @@ See the test case fixtures in [tests/fixtures/README.md](../tests/fixtures/READM
 - Fill-in-the-blank: [tests/fixtures/cloze.csv](../tests/fixtures/cloze.csv), [tests/fixtures/cloze.qti.xml](../tests/fixtures/cloze.qti.xml)
 
 ## Output file naming
-- One file per resultId.
-- File name: assessmentResult-<resultId>.xml
+- One file per studentNumber.
+- File name: assessmentResult-<studentNumber>.xml
 
 ## CLI JSON output
 When `--json` is supplied, the CLI emits a machine-readable summary to stdout.
@@ -233,7 +233,7 @@ Example (dry run):
   "mode": "dry-run",
   "outputTarget": "qti-results",
   "outputs": [
-    { "resultId": "200", "path": "qti-results/assessmentResult-200.xml" }
+    { "studentNumber": "12345678", "path": "qti-results/assessmentResult-12345678.xml" }
   ]
 }
 ```
