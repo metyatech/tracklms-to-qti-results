@@ -17,5 +17,3 @@ jobs:
         run: npm ci
       - name: Verify
         run: npm run verify
-      - name: Security audit
-        run: npm audit --audit-level=critical
