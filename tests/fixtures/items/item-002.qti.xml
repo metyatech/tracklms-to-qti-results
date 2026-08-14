@@ -6,8 +6,8 @@
       <qti-simple-choice identifier="CHOICE_2">Choice 2</qti-simple-choice>
     </qti-choice-interaction>
     <qti-rubric-block view="scorer">
-      <qti-p>[2] Criterion A</qti-p>
-      <qti-p>[1] Criterion B</qti-p>
+      <p>[2] Criterion A</p>
+      <p>[1] Criterion B</p>
     </qti-rubric-block>
   </qti-item-body>
 </qti-assessment-item>

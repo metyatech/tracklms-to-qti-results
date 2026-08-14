@@ -197,7 +197,7 @@ function customChoiceItemSource(): string {
       <qti-simple-choice identifier="choice-c">Option C</qti-simple-choice>
     </qti-choice-interaction>
     <qti-rubric-block view="scorer">
-      <qti-p>[1] Criterion A</qti-p>
+      <p>[1] Criterion A</p>
     </qti-rubric-block>
   </qti-item-body>
 </qti-assessment-item>`;
@@ -209,6 +209,73 @@ function customChoiceItemSources(): string[] {
       source.endsWith(".qti.xml")
         ? readFileSync(path.join(fixtureDir, "items", source), "utf8")
         : source,
+  );
+}
+
+function rubricItemSource(content: string, view = "scorer"): string {
+  return `<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-rubric" title="item-rubric">
+  <qti-item-body>
+    <qti-rubric-block view="${view}">
+      ${content}
+    </qti-rubric-block>
+  </qti-item-body>
+</qti-assessment-item>`;
+}
+
+function convertRubricSource(itemSourceXml: string): string {
+  const itemSources = [
+    itemSourceXml,
+    "item-002.qti.xml",
+    "item-003.qti.xml",
+    "item-004.qti.xml",
+  ].map((source) =>
+    source.endsWith(".qti.xml")
+      ? readFileSync(path.join(fixtureDir, "items", source), "utf8")
+      : source,
+  );
+  return convertCsvTextToQtiResults(
+    buildCsv({
+      "q1/title": "descriptive-question-1",
+      "q1/correct": "",
+      "q1/answer": "free response",
+      "q1/score": "1",
+    }),
+    {
+      itemSourceXmls: itemSources,
+      assessmentTestItemIdentifiers: ["item-rubric", "item-002", "item-003", "item-004"],
+    },
+  )[0].xml;
+}
+
+function testCanonicalRubricParsing(): void {
+  const bareParagraphXml = convertRubricSource(
+    rubricItemSource("<p>[1] Criterion A</p>", "candidate scorer"),
+  );
+  assert.match(bareParagraphXml, /<itemResult identifier="item-rubric"/u);
+  assert.match(bareParagraphXml, /<outcomeVariable identifier="RUBRIC_1_MET"/u);
+  assert.match(bareParagraphXml, /<outcomeVariable identifier="SCORE"[\s\S]*?<value>1<\/value>/u);
+
+  const nestedInlineXml = convertRubricSource(
+    rubricItemSource("<p>[1] Criterion <strong>with <em>nested inline</em></strong> text</p>"),
+  );
+  assert.match(nestedInlineXml, /<outcomeVariable identifier="SCORE"[\s\S]*?<value>1<\/value>/u);
+
+  assert.throws(
+    () => convertRubricSource(rubricItemSource("<div>[1] Not a rubric paragraph</div>")),
+    (error: unknown) =>
+      error instanceof ConversionError &&
+      error.message === "Scorer rubric not found for item: item-rubric",
+  );
+  assert.throws(
+    () => convertRubricSource(rubricItemSource("<p>[1] Candidate-only criterion</p>", "candidate")),
+    (error: unknown) =>
+      error instanceof ConversionError &&
+      error.message === "Scorer rubric not found for item: item-rubric",
+  );
+  assert.throws(
+    () => convertRubricSource("<qti-assessment-item"),
+    (error: unknown) =>
+      error instanceof ConversionError && error.message === "Invalid item source XML.",
   );
 }
 
@@ -375,6 +442,7 @@ testMultipleQuestionTypes();
 testUnansweredChoice();
 testChoiceIdentifiersFromItemSource();
 testChoiceIdentifierOutOfRange();
+testCanonicalRubricParsing();
 testRubricScoring();
 testCli();
 

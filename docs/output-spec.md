@@ -188,6 +188,10 @@ recalculates item/test scores based on the rubric format
 (`qti-rubric-block view="scorer"` with `[<points>] <criterion>` lines). Item
 files are resolved from the assessment test item references.
 
+The rubric block is QTI-specific, but its criterion paragraphs use canonical
+HTML `<p>` elements. Inline HTML inside a paragraph contributes its text when
+the criterion line is parsed.
+
 For choice questions, those same item files are also the source of truth for
 response identifiers. Track LMS choice numbers are 0-based indexes into the
 matching item's `qti-simple-choice` elements; out-of-range indexes fail the

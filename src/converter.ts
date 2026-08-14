@@ -1,3 +1,4 @@
+import { DOMParser, type Document, type Element } from "@xmldom/xmldom";
 import { parse as parseCsv } from "csv-parse/sync";
 
 export type QtiResultDocument = {
@@ -580,13 +581,16 @@ function parseItemSources(
   if (itemSourceXmls === undefined) return undefined;
   const itemSources = new Map<string, ItemSource>();
   for (const xml of itemSourceXmls) {
-    const identifier = extractRootIdentifier(xml, "qti-assessment-item", "item source");
+    const document = parseItemSourceXml(xml);
+    const root = document.documentElement;
+    if (root === null) throw new ConversionError("Root element must be qti-assessment-item.");
+    const identifier = extractRootIdentifier(root, "qti-assessment-item", "item source");
     if (itemSources.has(identifier)) {
       throw new ConversionError(`Duplicate item identifier in sources: ${identifier}`);
     }
     itemSources.set(identifier, {
-      choiceIdentifiers: extractChoiceIdentifiers(xml, identifier),
-      rubric: extractRubric(xml, identifier),
+      choiceIdentifiers: extractChoiceIdentifiers(root, identifier),
+      rubric: extractRubric(root, identifier),
     });
   }
   return itemSources;
@@ -616,32 +620,48 @@ function validateItemIdentifiers(
   return identifiers;
 }
 
-function extractRootIdentifier(xml: string, rootName: string, label: string): string {
-  const rootMatch = new RegExp(`<${rootName}\\b([^>]*)>`, "u").exec(xml);
-  if (!rootMatch) throw new ConversionError(`Root element must be ${rootName}.`);
-  const namespace = extractAttribute(rootMatch[1], "xmlns");
-  if (namespace !== undefined && namespace !== ITEM_NS) {
+function parseItemSourceXml(xml: string) {
+  const parserErrors: string[] = [];
+  let document: Document;
+  try {
+    document = new DOMParser({
+      onError: (level, message) => {
+        if (level !== "warning") parserErrors.push(message);
+      },
+    }).parseFromString(xml, "application/xml");
+  } catch {
+    throw new ConversionError("Invalid item source XML.");
+  }
+  if (parserErrors.length > 0) throw new ConversionError("Invalid item source XML.");
+  return document;
+}
+
+function extractRootIdentifier(root: Element, rootName: string, label: string): string {
+  if (root.nodeName !== rootName) throw new ConversionError(`Root element must be ${rootName}.`);
+  const namespace = root.namespaceURI;
+  if (namespace !== null && namespace !== ITEM_NS) {
     throw new ConversionError(`Unexpected ${label} namespace: ${namespace}`);
   }
-  const identifier = extractAttribute(rootMatch[1], "identifier");
+  const identifier = root.getAttribute("identifier");
   if (!identifier) throw new ConversionError(`Missing item identifier in scoring source.`);
   return identifier;
 }
 
-function extractRubric(xml: string, identifier: string): Rubric {
-  const blockMatch =
-    /<qti-rubric-block\b(?=[^>]*\bview\s*=\s*(["'])scorer\1)[^>]*>([\s\S]*?)<\/qti-rubric-block>/u.exec(
-      xml,
-    );
-  if (!blockMatch) throw new ConversionError(`Scorer rubric not found for item: ${identifier}`);
-  const paragraphMatches = [...blockMatch[2].matchAll(/<qti-p\b[^>]*>([\s\S]*?)<\/qti-p>/gu)];
-  if (paragraphMatches.length === 0) {
+function extractRubric(root: Element, identifier: string): Rubric {
+  const scorerBlock = Array.from(root.getElementsByTagName("qti-rubric-block")).find((block) =>
+    (block.getAttribute("view") ?? "").split(/\s+/u).includes("scorer"),
+  );
+  if (scorerBlock === undefined) {
+    throw new ConversionError(`Scorer rubric not found for item: ${identifier}`);
+  }
+  const paragraphs = Array.from(scorerBlock.getElementsByTagName("p"));
+  if (paragraphs.length === 0) {
     throw new ConversionError(`Scorer rubric not found for item: ${identifier}`);
   }
   const criteria: RubricCriterion[] = [];
   let scaleDigits = 0;
-  paragraphMatches.forEach((paragraphMatch, index) => {
-    const text = stripTags(paragraphMatch[1]).trim();
+  paragraphs.forEach((paragraph, index) => {
+    const text = (paragraph.textContent ?? "").trim();
     const rubricMatch = RUBRIC_LINE_PATTERN.exec(text);
     if (!rubricMatch) {
       throw new ConversionError(
@@ -662,11 +682,11 @@ function extractRubric(xml: string, identifier: string): Rubric {
   return { criteria, scaleDigits };
 }
 
-function extractChoiceIdentifiers(xml: string, itemIdentifier: string): string[] {
-  const choiceMatches = [...xml.matchAll(/<qti-simple-choice\b([^>]*)>/gu)];
-  const identifiers = choiceMatches.map((choiceMatch, index) => {
-    const identifier = extractAttribute(choiceMatch[1], "identifier");
-    if (identifier === undefined) {
+function extractChoiceIdentifiers(root: Element, itemIdentifier: string): string[] {
+  const choices = Array.from(root.getElementsByTagName("qti-simple-choice"));
+  const identifiers = choices.map((choice, index) => {
+    const identifier = choice.getAttribute("identifier");
+    if (identifier === null) {
       throw new ConversionError(
         `Missing choice identifier at index ${index} for item: ${itemIdentifier}`,
       );
@@ -819,13 +839,4 @@ function escapeXml(value: string): string {
     .replace(/</gu, "&lt;")
     .replace(/>/gu, "&gt;")
     .replace(/"/gu, "&quot;");
-}
-
-function extractAttribute(source: string, name: string): string | undefined {
-  const match = new RegExp(`\\b${name}\\s*=\\s*(["'])([^"']*)\\1`, "u").exec(source);
-  return match?.[2];
-}
-
-function stripTags(value: string): string {
-  return value.replace(/<[^>]+>/gu, "");
 }

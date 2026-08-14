@@ -1,8 +1,8 @@
 <qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-004" title="item-004">
   <qti-item-body>
     <qti-rubric-block view="scorer">
-      <qti-p>[2] Criterion A</qti-p>
-      <qti-p>[1] Criterion B</qti-p>
+      <p>[2] Criterion A</p>
+      <p>[1] Criterion B</p>
     </qti-rubric-block>
   </qti-item-body>
 </qti-assessment-item>
