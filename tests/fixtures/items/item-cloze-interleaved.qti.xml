@@ -1,0 +1,19 @@
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-cloze-interleaved" title="item-cloze-interleaved">
+  <qti-response-declaration identifier="RESPONSE_A" cardinality="ordered" base-type="string">
+    <qti-correct-response>
+      <qti-value>source-A1</qti-value>
+      <qti-value>source-A2</qti-value>
+    </qti-correct-response>
+  </qti-response-declaration>
+  <qti-response-declaration identifier="RESPONSE_B" cardinality="single" base-type="string">
+    <qti-correct-response><qti-value>source-B</qti-value></qti-correct-response>
+  </qti-response-declaration>
+  <qti-item-body>
+    <qti-text-entry-interaction response-identifier="RESPONSE_A" />
+    <qti-text-entry-interaction response-identifier="RESPONSE_B" />
+    <qti-text-entry-interaction response-identifier="RESPONSE_A" />
+    <qti-rubric-block view="scorer">
+      <p>[1] Cloze response</p>
+    </qti-rubric-block>
+  </qti-item-body>
+</qti-assessment-item>

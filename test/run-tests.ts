@@ -339,6 +339,66 @@ function testClozeResponseStructureFromItemSource(): void {
     ],
   );
 
+  assert.deepEqual(
+    itemResponseSnapshot(convertSourcedCloze("item-cloze-interleaved.qti.xml", "A;B;C")),
+    [
+      {
+        identifier: "RESPONSE_A",
+        cardinality: "ordered",
+        baseType: "string",
+        correctValues: ["source-A1", "source-A2"],
+        candidateValues: ["A", "C"],
+      },
+      {
+        identifier: "RESPONSE_B",
+        cardinality: "single",
+        baseType: "string",
+        correctValues: ["source-B"],
+        candidateValues: ["B"],
+      },
+    ],
+  );
+
+  assert.deepEqual(
+    itemResponseSnapshot(convertSourcedCloze("item-cloze-interleaved.qti.xml", "A;;C")),
+    [
+      {
+        identifier: "RESPONSE_A",
+        cardinality: "ordered",
+        baseType: "string",
+        correctValues: ["source-A1", "source-A2"],
+        candidateValues: ["A", "C"],
+      },
+      {
+        identifier: "RESPONSE_B",
+        cardinality: "single",
+        baseType: "string",
+        correctValues: ["source-B"],
+        candidateValues: [""],
+      },
+    ],
+  );
+
+  assert.deepEqual(
+    itemResponseSnapshot(convertSourcedCloze("item-cloze-interleaved-ordered.qti.xml", "A;B;C;D")),
+    [
+      {
+        identifier: "RESPONSE_A",
+        cardinality: "ordered",
+        baseType: "string",
+        correctValues: ["source-A1", "source-A2"],
+        candidateValues: ["A", "C"],
+      },
+      {
+        identifier: "RESPONSE_B",
+        cardinality: "ordered",
+        baseType: "string",
+        correctValues: ["source-B1", "source-B2"],
+        candidateValues: ["B", "D"],
+      },
+    ],
+  );
+
   const singleSource = readFileSync(
     path.join(fixtureDir, "items", "item-cloze-single.qti.xml"),
     "utf8",

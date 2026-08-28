@@ -40,7 +40,7 @@ type ResponseDeclaration = {
 };
 
 type TextEntryResponse = ResponseDeclaration & {
-  interactionCount: number;
+  interactionIndices: number[];
 };
 
 type ItemSource = {
@@ -409,7 +409,7 @@ function buildSourcedClozeResponses(
   }
 
   const interactionCount = itemSource.textEntryResponses.reduce(
-    (count, response) => count + response.interactionCount,
+    (count, response) => count + response.interactionIndices.length,
     0,
   );
   const answerValues = splitSemicolonValues(answer) ?? [];
@@ -423,13 +423,16 @@ function buildSourcedClozeResponses(
     ...Array.from({ length: interactionCount - answerValues.length }, () => ""),
   ];
 
-  let answerOffset = 0;
   return itemSource.textEntryResponses.map((response) => {
-    const candidateValues = paddedAnswerValues.slice(
-      answerOffset,
-      answerOffset + response.interactionCount,
-    );
-    answerOffset += response.interactionCount;
+    const candidateValues = response.interactionIndices.map((interactionIndex) => {
+      const candidateValue = paddedAnswerValues[interactionIndex];
+      if (candidateValue === undefined) {
+        throw new ConversionError(
+          `Missing padded answer value at interaction ${interactionIndex} for item ${itemIdentifier}.`,
+        );
+      }
+      return candidateValue;
+    });
     return {
       identifier: response.identifier,
       baseType: response.baseType,
@@ -782,15 +785,15 @@ function extractTextEntryResponses(root: Element, itemIdentifier: string): TextE
 
     const response = responses.get(responseIdentifier);
     if (response === undefined) {
-      responses.set(responseIdentifier, { ...declaration, interactionCount: 1 });
+      responses.set(responseIdentifier, { ...declaration, interactionIndices: [index] });
       return;
     }
-    response.interactionCount += 1;
     if (response.cardinality === "single") {
       throw new ConversionError(
         `Single response declaration ${responseIdentifier} is referenced by multiple text-entry interactions in item ${itemIdentifier}.`,
       );
     }
+    response.interactionIndices.push(index);
   });
 
   return [...responses.values()];

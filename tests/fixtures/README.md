@@ -13,4 +13,4 @@ for representative cases.
   - Input: `cloze.csv`
   - Output: `cloze.qti.xml`
 - Source-driven cloze response structure
-  - Items: `items/item-cloze-distinct.qti.xml`, `items/item-cloze-ordered.qti.xml`, `items/item-cloze-single.qti.xml`
+  - Items: `items/item-cloze-distinct.qti.xml`, `items/item-cloze-ordered.qti.xml`, `items/item-cloze-single.qti.xml`, `items/item-cloze-interleaved.qti.xml`, `items/item-cloze-interleaved-ordered.qti.xml`
