@@ -12,3 +12,5 @@ for representative cases.
 - Fill-in-the-blank
   - Input: `cloze.csv`
   - Output: `cloze.qti.xml`
+- Source-driven cloze response structure
+  - Items: `items/item-cloze-distinct.qti.xml`, `items/item-cloze-ordered.qti.xml`, `items/item-cloze-single.qti.xml`

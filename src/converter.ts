@@ -32,9 +32,21 @@ type Rubric = {
   scaleDigits: number;
 };
 
+type ResponseDeclaration = {
+  identifier: string;
+  cardinality: string;
+  baseType: string;
+  correctValues?: string[];
+};
+
+type TextEntryResponse = ResponseDeclaration & {
+  interactionCount: number;
+};
+
 type ItemSource = {
   choiceIdentifiers: string[];
   rubric: Rubric;
+  textEntryResponses: TextEntryResponse[];
 };
 
 const QTI_NS = "http://www.imsglobal.org/xsd/imsqti_result_v3p0";
@@ -360,6 +372,8 @@ function buildItemResults(
         correctValues: [correctValue],
         candidateValues: maybeList(answerValue),
       });
+    } else if (itemSource !== undefined) {
+      responseVariables.push(...buildSourcedClozeResponses(answer, itemSource, identifier));
     } else {
       responseVariables.push({
         identifier: "RESPONSE",
@@ -381,6 +395,49 @@ function buildItemResults(
     });
   });
   return itemResults;
+}
+
+function buildSourcedClozeResponses(
+  answer: string | undefined,
+  itemSource: ItemSource,
+  itemIdentifier: string,
+): ResponseVariable[] {
+  if (itemSource.textEntryResponses.length === 0) {
+    throw new ConversionError(
+      `Text-entry response structure not found for item: ${itemIdentifier}`,
+    );
+  }
+
+  const interactionCount = itemSource.textEntryResponses.reduce(
+    (count, response) => count + response.interactionCount,
+    0,
+  );
+  const answerValues = splitSemicolonValues(answer) ?? [];
+  if (answerValues.length > interactionCount) {
+    throw new ConversionError(
+      `Cloze answer has more values than text-entry interactions for item ${itemIdentifier}.`,
+    );
+  }
+  const paddedAnswerValues = [
+    ...answerValues,
+    ...Array.from({ length: interactionCount - answerValues.length }, () => ""),
+  ];
+
+  let answerOffset = 0;
+  return itemSource.textEntryResponses.map((response) => {
+    const candidateValues = paddedAnswerValues.slice(
+      answerOffset,
+      answerOffset + response.interactionCount,
+    );
+    answerOffset += response.interactionCount;
+    return {
+      identifier: response.identifier,
+      baseType: response.baseType,
+      cardinality: response.cardinality,
+      correctValues: response.correctValues,
+      candidateValues,
+    };
+  });
 }
 
 function resolveChoiceIdentifier(
@@ -512,11 +569,7 @@ function extractClozeCorrectValues(correct: string): string[] {
 
 function splitSemicolonValues(value: string | undefined): string[] | undefined {
   if (value === undefined) return undefined;
-  const values = value
-    .split(";")
-    .map((part) => part.trim())
-    .filter(Boolean);
-  return values.length > 0 ? values : undefined;
+  return value.split(";").map((part) => part.trim());
 }
 
 function maybeList(value: string | undefined): string[] | undefined {
@@ -591,6 +644,7 @@ function parseItemSources(
     itemSources.set(identifier, {
       choiceIdentifiers: extractChoiceIdentifiers(root, identifier),
       rubric: extractRubric(root, identifier),
+      textEntryResponses: extractTextEntryResponses(root, identifier),
     });
   }
   return itemSources;
@@ -697,6 +751,115 @@ function extractChoiceIdentifiers(root: Element, itemIdentifier: string): string
     throw new ConversionError(`Duplicate choice identifier in item: ${itemIdentifier}`);
   }
   return identifiers;
+}
+
+function extractTextEntryResponses(root: Element, itemIdentifier: string): TextEntryResponse[] {
+  const declarations = extractResponseDeclarations(root, itemIdentifier);
+  const responses = new Map<string, TextEntryResponse>();
+  const interactions = Array.from(root.getElementsByTagName("qti-text-entry-interaction"));
+
+  interactions.forEach((interaction, index) => {
+    const responseIdentifier = interaction.getAttribute("response-identifier");
+    if (!responseIdentifier) {
+      throw new ConversionError(
+        `Missing response identifier at text-entry interaction ${index + 1} in item ${itemIdentifier}.`,
+      );
+    }
+    const declaration = declarations.get(responseIdentifier);
+    if (declaration === undefined) {
+      throw new ConversionError(
+        `Text-entry interaction references missing response declaration ${responseIdentifier} in item ${itemIdentifier}.`,
+      );
+    }
+    if (
+      declaration.baseType !== "string" ||
+      !["single", "ordered"].includes(declaration.cardinality)
+    ) {
+      throw new ConversionError(
+        `Unsupported text-entry response declaration ${responseIdentifier} in item ${itemIdentifier}.`,
+      );
+    }
+
+    const response = responses.get(responseIdentifier);
+    if (response === undefined) {
+      responses.set(responseIdentifier, { ...declaration, interactionCount: 1 });
+      return;
+    }
+    response.interactionCount += 1;
+    if (response.cardinality === "single") {
+      throw new ConversionError(
+        `Single response declaration ${responseIdentifier} is referenced by multiple text-entry interactions in item ${itemIdentifier}.`,
+      );
+    }
+  });
+
+  return [...responses.values()];
+}
+
+function extractResponseDeclarations(
+  root: Element,
+  itemIdentifier: string,
+): Map<string, ResponseDeclaration> {
+  const declarations = new Map<string, ResponseDeclaration>();
+  const declarationElements = Array.from(root.getElementsByTagName("qti-response-declaration"));
+  declarationElements.forEach((declarationElement, index) => {
+    const identifier = declarationElement.getAttribute("identifier");
+    const cardinality = declarationElement.getAttribute("cardinality");
+    const baseType = declarationElement.getAttribute("base-type");
+    if (!identifier || !cardinality || !baseType) {
+      throw new ConversionError(
+        `Invalid response declaration at index ${index + 1} in item ${itemIdentifier}.`,
+      );
+    }
+    const declaration: ResponseDeclaration = {
+      identifier,
+      cardinality,
+      baseType,
+      correctValues: extractResponseCorrectValues(declarationElement),
+    };
+    const existing = declarations.get(identifier);
+    if (existing !== undefined && !sameResponseDeclaration(existing, declaration)) {
+      throw new ConversionError(
+        `Conflicting response declarations for ${identifier} in item ${itemIdentifier}.`,
+      );
+    }
+    if (existing === undefined) declarations.set(identifier, declaration);
+  });
+  return declarations;
+}
+
+function extractResponseCorrectValues(declaration: Element): string[] | undefined {
+  const correctResponses = Array.from(declaration.getElementsByTagName("qti-correct-response"));
+  if (correctResponses.length === 0) return undefined;
+  if (correctResponses.length > 1) {
+    throw new ConversionError(
+      `Response declaration contains multiple correct responses: ${declaration.getAttribute("identifier") ?? "unknown"}.`,
+    );
+  }
+  const correctResponse = correctResponses[0];
+  const valueElements = Array.from(correctResponse.getElementsByTagName("qti-value"));
+  const fallbackValueElements =
+    valueElements.length === 0 ? Array.from(correctResponse.getElementsByTagName("value")) : [];
+  const values = (valueElements.length > 0 ? valueElements : fallbackValueElements).map(
+    (value) => value.textContent ?? "",
+  );
+  return values.length > 0 ? values : undefined;
+}
+
+function sameResponseDeclaration(left: ResponseDeclaration, right: ResponseDeclaration): boolean {
+  return (
+    left.cardinality === right.cardinality &&
+    left.baseType === right.baseType &&
+    sameStringArray(left.correctValues, right.correctValues)
+  );
+}
+
+function sameStringArray(
+  left: readonly string[] | undefined,
+  right: readonly string[] | undefined,
+): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function criteriaAllMet(

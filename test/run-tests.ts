@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { DOMParser, type Element } from "@xmldom/xmldom";
 import { ConversionError, convertCsvTextToQtiResults } from "../src/index.js";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -25,8 +26,11 @@ function csvEscape(value: string): string {
   return /[",\r\n]/u.test(value) ? `"${value.replace(/"/gu, '""')}"` : value;
 }
 
-function buildCsv(overrides: Record<string, string>): string {
-  const names = header();
+function buildCsv(overrides: Record<string, string>, maxQuestionIndex = 4): string {
+  const names = header().filter((name) => {
+    const match = /^q(\d+)\//u.exec(name);
+    return match === null || Number(match[1]) <= maxQuestionIndex;
+  });
   const base: Record<string, string> = {
     classId: "1",
     className: "Sample Class",
@@ -186,6 +190,255 @@ function testUnansweredChoice(): void {
   )[0].xml;
   assert.match(xml, /<correctResponse>\n\s+<value>CHOICE_2<\/value>\n\s+<\/correctResponse>/u);
   assert.doesNotMatch(xml, /CHOICE_undefined/u);
+}
+
+type ResponseSnapshot = {
+  identifier: string;
+  cardinality: string;
+  baseType: string;
+  correctValues: string[];
+  candidateValues: string[];
+};
+
+function itemResponseSnapshot(xml: string): ResponseSnapshot[] {
+  const document = new DOMParser().parseFromString(xml, "application/xml");
+  const itemResult = document.getElementsByTagName("itemResult")[0];
+  assert.ok(itemResult);
+  return Array.from(itemResult.getElementsByTagName("responseVariable")).map((response) => ({
+    identifier: response.getAttribute("identifier") ?? "",
+    cardinality: response.getAttribute("cardinality") ?? "",
+    baseType: response.getAttribute("baseType") ?? "",
+    correctValues: responseValues(response, "correctResponse"),
+    candidateValues: responseValues(response, "candidateResponse"),
+  }));
+}
+
+function responseValues(response: Element, containerName: string): string[] {
+  const container = response.getElementsByTagName(containerName)[0];
+  if (!container) return [];
+  return Array.from(container.getElementsByTagName("value")).map(
+    (value) => value.textContent ?? "",
+  );
+}
+
+function convertSourcedCloze(sourceName: string, answer: string): string {
+  const source = readFileSync(path.join(fixtureDir, "items", sourceName), "utf8");
+  return convertCsvTextToQtiResults(
+    buildCsv(
+      {
+        "q1/title": "source-driven-cloze",
+        "q1/correct": "${track-A};${track-B};${track-C}",
+        "q1/answer": answer,
+        "q1/score": "1",
+      },
+      1,
+    ),
+    {
+      itemSourceXmls: [source],
+      assessmentTestItemIdentifiers: [sourceName.replace(".qti.xml", "")],
+    },
+  )[0].xml;
+}
+
+function testClozeResponseStructureFromItemSource(): void {
+  const distinct = itemResponseSnapshot(
+    convertSourcedCloze("item-cloze-distinct.qti.xml", "A;B;C"),
+  );
+  assert.deepEqual(distinct, [
+    {
+      identifier: "RESPONSE_1",
+      cardinality: "single",
+      baseType: "string",
+      correctValues: ["source-A"],
+      candidateValues: ["A"],
+    },
+    {
+      identifier: "RESPONSE_2",
+      cardinality: "single",
+      baseType: "string",
+      correctValues: ["source-B"],
+      candidateValues: ["B"],
+    },
+    {
+      identifier: "RESPONSE_3",
+      cardinality: "single",
+      baseType: "string",
+      correctValues: ["source-C"],
+      candidateValues: ["C"],
+    },
+  ]);
+  assert.deepEqual(
+    distinct.map((response) => response.identifier),
+    ["RESPONSE_1", "RESPONSE_2", "RESPONSE_3"],
+  );
+
+  assert.deepEqual(
+    itemResponseSnapshot(convertSourcedCloze("item-cloze-distinct.qti.xml", "A;;C")),
+    [
+      {
+        identifier: "RESPONSE_1",
+        cardinality: "single",
+        baseType: "string",
+        correctValues: ["source-A"],
+        candidateValues: ["A"],
+      },
+      {
+        identifier: "RESPONSE_2",
+        cardinality: "single",
+        baseType: "string",
+        correctValues: ["source-B"],
+        candidateValues: [""],
+      },
+      {
+        identifier: "RESPONSE_3",
+        cardinality: "single",
+        baseType: "string",
+        correctValues: ["source-C"],
+        candidateValues: ["C"],
+      },
+    ],
+  );
+
+  assert.deepEqual(
+    itemResponseSnapshot(convertSourcedCloze("item-cloze-distinct.qti.xml", "A;B")),
+    [
+      {
+        identifier: "RESPONSE_1",
+        cardinality: "single",
+        baseType: "string",
+        correctValues: ["source-A"],
+        candidateValues: ["A"],
+      },
+      {
+        identifier: "RESPONSE_2",
+        cardinality: "single",
+        baseType: "string",
+        correctValues: ["source-B"],
+        candidateValues: ["B"],
+      },
+      {
+        identifier: "RESPONSE_3",
+        cardinality: "single",
+        baseType: "string",
+        correctValues: ["source-C"],
+        candidateValues: [""],
+      },
+    ],
+  );
+
+  assert.deepEqual(
+    itemResponseSnapshot(convertSourcedCloze("item-cloze-ordered.qti.xml", "A;B;C")),
+    [
+      {
+        identifier: "RESPONSE",
+        cardinality: "ordered",
+        baseType: "string",
+        correctValues: ["source-A", "source-B", "source-C"],
+        candidateValues: ["A", "B", "C"],
+      },
+    ],
+  );
+
+  const singleSource = readFileSync(
+    path.join(fixtureDir, "items", "item-cloze-single.qti.xml"),
+    "utf8",
+  );
+  const singleXml = convertCsvTextToQtiResults(
+    buildCsv(
+      {
+        "q1/title": "single-text-entry",
+        "q1/correct": "${track-answer}",
+        "q1/answer": "A",
+        "q1/score": "1",
+      },
+      1,
+    ),
+    {
+      itemSourceXmls: [singleSource],
+      assessmentTestItemIdentifiers: ["item-cloze-single"],
+    },
+  )[0].xml;
+  assert.deepEqual(itemResponseSnapshot(singleXml), [
+    {
+      identifier: "RESPONSE",
+      cardinality: "single",
+      baseType: "string",
+      correctValues: ["source-answer"],
+      candidateValues: ["A"],
+    },
+  ]);
+}
+
+function testClozeAnswerCountValidation(): void {
+  assert.throws(
+    () => convertSourcedCloze("item-cloze-distinct.qti.xml", "A;B;C;D"),
+    (error: unknown) =>
+      error instanceof ConversionError &&
+      error.message ===
+        "Cloze answer has more values than text-entry interactions for item item-cloze-distinct.",
+  );
+}
+
+function testInvalidClozeSourceStructure(): void {
+  const missingDeclaration = `<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-invalid" title="item-invalid">
+  <qti-response-declaration identifier="RESPONSE_1" cardinality="single" base-type="string" />
+  <qti-item-body>
+    <qti-text-entry-interaction response-identifier="RESPONSE_2" />
+    <qti-rubric-block view="scorer"><p>[1] Cloze response</p></qti-rubric-block>
+  </qti-item-body>
+</qti-assessment-item>`;
+  assert.throws(
+    () =>
+      convertCsvTextToQtiResults(
+        buildCsv(
+          {
+            "q1/title": "invalid-source",
+            "q1/correct": "${A}",
+            "q1/answer": "A",
+            "q1/score": "1",
+          },
+          1,
+        ),
+        {
+          itemSourceXmls: [missingDeclaration],
+          assessmentTestItemIdentifiers: ["item-invalid"],
+        },
+      ),
+    (error: unknown) =>
+      error instanceof ConversionError &&
+      error.message ===
+        "Text-entry interaction references missing response declaration RESPONSE_2 in item item-invalid.",
+  );
+
+  const conflictingDeclarations = `<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-invalid" title="item-invalid">
+  <qti-response-declaration identifier="RESPONSE_1" cardinality="single" base-type="string" />
+  <qti-response-declaration identifier="RESPONSE_1" cardinality="ordered" base-type="string" />
+  <qti-item-body>
+    <qti-text-entry-interaction response-identifier="RESPONSE_1" />
+    <qti-rubric-block view="scorer"><p>[1] Cloze response</p></qti-rubric-block>
+  </qti-item-body>
+</qti-assessment-item>`;
+  assert.throws(
+    () =>
+      convertCsvTextToQtiResults(
+        buildCsv(
+          {
+            "q1/title": "invalid-source",
+            "q1/correct": "${A}",
+            "q1/answer": "A",
+            "q1/score": "1",
+          },
+          1,
+        ),
+        {
+          itemSourceXmls: [conflictingDeclarations],
+          assessmentTestItemIdentifiers: ["item-invalid"],
+        },
+      ),
+    (error: unknown) =>
+      error instanceof ConversionError &&
+      error.message === "Conflicting response declarations for RESPONSE_1 in item item-invalid.",
+  );
 }
 
 function customChoiceItemSource(): string {
@@ -440,6 +693,9 @@ testValidationAndFilters();
 testDuplicateDetectionExcludesFilteredRows();
 testMultipleQuestionTypes();
 testUnansweredChoice();
+testClozeResponseStructureFromItemSource();
+testClozeAnswerCountValidation();
+testInvalidClozeSourceStructure();
 testChoiceIdentifiersFromItemSource();
 testChoiceIdentifierOutOfRange();
 testCanonicalRubricParsing();

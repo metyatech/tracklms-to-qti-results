@@ -176,11 +176,18 @@ Question type is determined by the q{n}/correct and q{n}/answer fields:
 
 3) Fill-in-the-blank
 - condition: q{n}/correct includes one or more ${...} placeholders
-- baseType: string
-- cardinality: ordered
-- correctResponse: values derived from ${...} placeholders in q{n}/correct
-  (if placeholder content is wrapped in /.../, keep the /.../ string)
-- candidateResponse: values from q{n}/answer split by ';' in order
+- When item source XML is provided, the source assessment item's response
+  declarations and text-entry interactions are authoritative for the response
+  variable identifier, base type, cardinality, and correct response values.
+- Track's semicolon-separated q{n}/answer values map to text-entry interactions
+  in their document order. Empty elements preserve their positions as empty
+  candidate values; missing trailing elements are filled as unanswered values.
+- When the source contains one ordered response declaration referenced by
+  multiple text-entry interactions, the output remains one ordered response
+  variable. Distinct declarations remain distinct response variables.
+- When item source XML is absent, the legacy fallback uses baseType `string`,
+  cardinality `ordered`, correct values derived from `${...}` placeholders in
+  q{n}/correct (keeping `/.../` wrappers), and candidate values split by `;`.
 
 ## Optional rubric-based scoring results
 When a QTI assessment test is provided, the converter emits rubric outcomes and

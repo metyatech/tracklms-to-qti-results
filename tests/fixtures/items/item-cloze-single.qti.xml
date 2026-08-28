@@ -1,0 +1,11 @@
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-cloze-single" title="item-cloze-single">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="string">
+    <qti-correct-response><qti-value>source-answer</qti-value></qti-correct-response>
+  </qti-response-declaration>
+  <qti-item-body>
+    <qti-text-entry-interaction response-identifier="RESPONSE" />
+    <qti-rubric-block view="scorer">
+      <p>[1] Cloze response</p>
+    </qti-rubric-block>
+  </qti-item-body>
+</qti-assessment-item>
