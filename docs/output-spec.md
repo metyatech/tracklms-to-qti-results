@@ -182,6 +182,10 @@ Question type is determined by the q{n}/correct and q{n}/answer fields:
 - Track's semicolon-separated q{n}/answer values map to text-entry interactions
   in their document order. Empty elements preserve their positions as empty
   candidate values; missing trailing elements are filled as unanswered values.
+- If an answer itself contains semicolons and the raw split would exceed the
+  source interaction count, source correct-response metadata is used only to
+  disambiguate separator positions. Recovery is accepted only when one partition
+  is uniquely best; otherwise conversion fails instead of guessing.
 - When the source contains one ordered response declaration referenced by
   multiple text-entry interactions, the output remains one ordered response
   variable. Distinct declarations remain distinct response variables.

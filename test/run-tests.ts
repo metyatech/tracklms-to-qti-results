@@ -429,6 +429,47 @@ function testClozeResponseStructureFromItemSource(): void {
   ]);
 }
 
+function testClozeSemicolonRecoveryFromItemSource(): void {
+  const source = `<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqti_v3p0" identifier="item-code-cloze" title="item-code-cloze">
+  <qti-response-declaration identifier="RESPONSE_1" cardinality="single" base-type="string">
+    <qti-correct-response><qti-value>function</qti-value></qti-correct-response>
+  </qti-response-declaration>
+  <qti-response-declaration identifier="RESPONSE_2" cardinality="single" base-type="string" interpretation="regex">
+    <qti-correct-response><qti-value>goodMorning\\s*\\(\\s*\\)\\s*;?\\s*</qti-value></qti-correct-response>
+  </qti-response-declaration>
+  <qti-response-declaration identifier="RESPONSE_3" cardinality="single" base-type="string" interpretation="regex">
+    <qti-correct-response><qti-value>goodMorning\\s*\\(\\s*\\)\\s*;?\\s*</qti-value></qti-correct-response>
+  </qti-response-declaration>
+  <qti-item-body>
+    <qti-text-entry-interaction response-identifier="RESPONSE_1" />
+    <qti-text-entry-interaction response-identifier="RESPONSE_2" />
+    <qti-text-entry-interaction response-identifier="RESPONSE_3" />
+    <qti-rubric-block view="scorer"><p>[1] code cloze</p></qti-rubric-block>
+  </qti-item-body>
+</qti-assessment-item>`;
+  const xml = convertCsvTextToQtiResults(
+    buildCsv(
+      {
+        "q1/title": "code-cloze",
+        "q1/correct":
+          "${function};${/goodMorning\\\\s*\\\\(\\\\s*\\\\)\\\\s*;?\\\\s*/};${/goodMorning\\\\s*\\\\(\\\\s*\\\\)\\\\s*;?\\\\s*/}",
+        "q1/answer": "function;goodMorning();;goodMorning();",
+        "q1/score": "1",
+      },
+      1,
+    ),
+    {
+      itemSourceXmls: [source],
+      assessmentTestItemIdentifiers: ["item-code-cloze"],
+    },
+  )[0].xml;
+
+  assert.deepEqual(
+    itemResponseSnapshot(xml).map((response) => response.candidateValues),
+    [["function"], ["goodMorning();"], ["goodMorning();"]],
+  );
+}
+
 function testClozeAnswerCountValidation(): void {
   assert.throws(
     () => convertSourcedCloze("item-cloze-distinct.qti.xml", "A;B;C;D"),
@@ -754,6 +795,7 @@ testDuplicateDetectionExcludesFilteredRows();
 testMultipleQuestionTypes();
 testUnansweredChoice();
 testClozeResponseStructureFromItemSource();
+testClozeSemicolonRecoveryFromItemSource();
 testClozeAnswerCountValidation();
 testInvalidClozeSourceStructure();
 testChoiceIdentifiersFromItemSource();

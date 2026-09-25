@@ -37,6 +37,7 @@ type ResponseDeclaration = {
   cardinality: string;
   baseType: string;
   correctValues?: string[];
+  interpretation?: string;
 };
 
 type TextEntryResponse = ResponseDeclaration & {
@@ -412,16 +413,12 @@ function buildSourcedClozeResponses(
     (count, response) => count + response.interactionIndices.length,
     0,
   );
-  const answerValues = splitSemicolonValues(answer) ?? [];
-  if (answerValues.length > interactionCount) {
-    throw new ConversionError(
-      `Cloze answer has more values than text-entry interactions for item ${itemIdentifier}.`,
-    );
-  }
-  const paddedAnswerValues = [
-    ...answerValues,
-    ...Array.from({ length: interactionCount - answerValues.length }, () => ""),
-  ];
+  const paddedAnswerValues = splitSourcedClozeValues(
+    answer,
+    itemSource.textEntryResponses,
+    interactionCount,
+    itemIdentifier,
+  );
 
   return itemSource.textEntryResponses.map((response) => {
     const candidateValues = response.interactionIndices.map((interactionIndex) => {
@@ -441,6 +438,142 @@ function buildSourcedClozeResponses(
       candidateValues,
     };
   });
+}
+
+type ClozeInteractionExpectation = {
+  correctValue?: string;
+  interpretation?: string;
+};
+
+type ClozePartitionResult = {
+  score: number;
+  ways: number;
+  values: string[];
+};
+
+function splitSourcedClozeValues(
+  answer: string | undefined,
+  responses: readonly TextEntryResponse[],
+  interactionCount: number,
+  itemIdentifier: string,
+): string[] {
+  const answerValues = splitSemicolonValues(answer) ?? [];
+  if (answerValues.length <= interactionCount) {
+    return [
+      ...answerValues,
+      ...Array.from({ length: interactionCount - answerValues.length }, () => ""),
+    ];
+  }
+  if (answer === undefined) return [];
+
+  const recovered = recoverOverfullClozeAnswer(answer, responses, interactionCount);
+  if (recovered !== undefined) return recovered;
+
+  throw new ConversionError(
+    `Cloze answer has more values than text-entry interactions for item ${itemIdentifier}.`,
+  );
+}
+
+function recoverOverfullClozeAnswer(
+  answer: string,
+  responses: readonly TextEntryResponse[],
+  interactionCount: number,
+): string[] | undefined {
+  if (interactionCount === 1) return [answer.trim()];
+
+  const expectations = buildClozeInteractionExpectations(responses, interactionCount);
+  const separatorPositions: number[] = [];
+  for (let index = 0; index < answer.length; index++) {
+    if (answer[index] === ";") separatorPositions.push(index);
+  }
+  if (separatorPositions.length < interactionCount - 1) return undefined;
+
+  const memo = new Map<string, ClozePartitionResult | undefined>();
+  const visit = (
+    interactionIndex: number,
+    previousSeparatorIndex: number,
+  ): ClozePartitionResult | undefined => {
+    const key = `${interactionIndex}:${previousSeparatorIndex}`;
+    if (memo.has(key)) return memo.get(key);
+
+    const start = previousSeparatorIndex < 0 ? 0 : separatorPositions[previousSeparatorIndex] + 1;
+    if (interactionIndex === interactionCount - 1) {
+      const value = answer.slice(start).trim();
+      const result = {
+        score: matchesClozeExpectation(value, expectations[interactionIndex]) ? 1 : 0,
+        ways: 1,
+        values: [value],
+      };
+      memo.set(key, result);
+      return result;
+    }
+
+    const remainingFields = interactionCount - interactionIndex - 1;
+    const maxSeparatorIndex = separatorPositions.length - remainingFields;
+    let best: ClozePartitionResult | undefined;
+    for (
+      let separatorIndex = previousSeparatorIndex + 1;
+      separatorIndex <= maxSeparatorIndex;
+      separatorIndex++
+    ) {
+      const value = answer.slice(start, separatorPositions[separatorIndex]).trim();
+      const suffix = visit(interactionIndex + 1, separatorIndex);
+      if (suffix === undefined) continue;
+      const score =
+        suffix.score + (matchesClozeExpectation(value, expectations[interactionIndex]) ? 1 : 0);
+      const candidate: ClozePartitionResult = {
+        score,
+        ways: suffix.ways,
+        values: [value, ...suffix.values],
+      };
+      if (best === undefined || candidate.score > best.score) {
+        best = candidate;
+      } else if (candidate.score === best.score) {
+        best = { ...best, ways: Math.min(2, best.ways + candidate.ways) };
+      }
+    }
+    memo.set(key, best);
+    return best;
+  };
+
+  const best = visit(0, -1);
+  return best !== undefined && best.ways === 1 && best.score > 0 ? best.values : undefined;
+}
+
+function buildClozeInteractionExpectations(
+  responses: readonly TextEntryResponse[],
+  interactionCount: number,
+): ClozeInteractionExpectation[] {
+  const expectations = Array.from(
+    { length: interactionCount },
+    (): ClozeInteractionExpectation => ({}),
+  );
+  for (const response of responses) {
+    response.interactionIndices.forEach((interactionIndex, responseIndex) => {
+      expectations[interactionIndex] = {
+        correctValue:
+          response.cardinality === "ordered"
+            ? response.correctValues?.[responseIndex]
+            : response.correctValues?.[0],
+        interpretation: response.interpretation,
+      };
+    });
+  }
+  return expectations;
+}
+
+function matchesClozeExpectation(
+  value: string,
+  expectation: ClozeInteractionExpectation | undefined,
+): boolean {
+  const correctValue = expectation?.correctValue;
+  if (correctValue === undefined) return false;
+  if (expectation?.interpretation !== "regex") return value === correctValue;
+  try {
+    return new RegExp(`^(?:${correctValue})$`, "u").test(value);
+  } catch {
+    return false;
+  }
 }
 
 function resolveChoiceIdentifier(
@@ -819,6 +952,7 @@ function extractResponseDeclarations(
       cardinality,
       baseType,
       correctValues: extractResponseCorrectValues(declarationElement),
+      interpretation: declarationElement.getAttribute("interpretation") ?? undefined,
     };
     const existing = declarations.get(identifier);
     if (existing !== undefined && !sameResponseDeclaration(existing, declaration)) {
@@ -853,6 +987,7 @@ function sameResponseDeclaration(left: ResponseDeclaration, right: ResponseDecla
   return (
     left.cardinality === right.cardinality &&
     left.baseType === right.baseType &&
+    left.interpretation === right.interpretation &&
     sameStringArray(left.correctValues, right.correctValues)
   );
 }
